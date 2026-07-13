@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { Fragment, useEffect, useState, type FormEvent } from "react";
 import { api, ApiError } from "../api/client";
 import { Badge, Button, Card, Field, Input, PageHeader, Select, Table, Td, Th, Thead } from "../components/ui";
 
@@ -17,6 +17,11 @@ export default function Users() {
   const [role, setRole] = useState<"admin" | "staff">("staff");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+
+  const [resetTargetId, setResetTargetId] = useState<string | null>(null);
+  const [resetPassword, setResetPassword] = useState("");
+  const [resetError, setResetError] = useState<string | null>(null);
+  const [resetting, setResetting] = useState(false);
 
   async function refresh() {
     setUsers(await api.get<AppUser[]>("/users"));
@@ -51,6 +56,26 @@ export default function Users() {
   async function toggleRole(u: AppUser) {
     await api.patch(`/users/${u.id}`, { role: u.role === "admin" ? "staff" : "admin" });
     await refresh();
+  }
+
+  function startReset(id: string) {
+    setResetTargetId(id);
+    setResetPassword("");
+    setResetError(null);
+  }
+
+  async function submitReset(id: string) {
+    setResetError(null);
+    setResetting(true);
+    try {
+      await api.patch(`/users/${id}`, { password: resetPassword });
+      setResetTargetId(null);
+      setResetPassword("");
+    } catch (err) {
+      setResetError(err instanceof ApiError ? err.message : "Failed to reset password");
+    } finally {
+      setResetting(false);
+    }
   }
 
   return (
@@ -106,23 +131,57 @@ export default function Users() {
           </Thead>
           <tbody>
             {users.map((u) => (
-              <tr key={u.id}>
-                <Td className="font-medium">{u.email}</Td>
-                <Td>
-                  <Badge tone={u.role === "admin" ? "accent" : "neutral"}>{u.role}</Badge>
-                </Td>
-                <Td>
-                  <Badge tone={u.active ? "good" : "neutral"}>{u.active ? "active" : "inactive"}</Badge>
-                </Td>
-                <Td className="text-right space-x-3">
-                  <button className="text-accent hover:underline text-sm" onClick={() => toggleRole(u)}>
-                    Make {u.role === "admin" ? "staff" : "admin"}
-                  </button>
-                  <button className="text-accent hover:underline text-sm" onClick={() => toggleActive(u)}>
-                    {u.active ? "Deactivate" : "Activate"}
-                  </button>
-                </Td>
-              </tr>
+              <Fragment key={u.id}>
+                <tr>
+                  <Td className="font-medium">{u.email}</Td>
+                  <Td>
+                    <Badge tone={u.role === "admin" ? "accent" : "neutral"}>{u.role}</Badge>
+                  </Td>
+                  <Td>
+                    <Badge tone={u.active ? "good" : "neutral"}>{u.active ? "active" : "inactive"}</Badge>
+                  </Td>
+                  <Td className="text-right space-x-3">
+                    <button className="text-accent hover:underline text-sm" onClick={() => toggleRole(u)}>
+                      Make {u.role === "admin" ? "staff" : "admin"}
+                    </button>
+                    <button className="text-accent hover:underline text-sm" onClick={() => toggleActive(u)}>
+                      {u.active ? "Deactivate" : "Activate"}
+                    </button>
+                    <button
+                      className="text-accent hover:underline text-sm"
+                      onClick={() => (resetTargetId === u.id ? setResetTargetId(null) : startReset(u.id))}
+                    >
+                      Reset password
+                    </button>
+                  </Td>
+                </tr>
+                {resetTargetId === u.id && (
+                  <tr className="bg-page">
+                    <Td colSpan={4}>
+                      <div className="flex flex-wrap items-end gap-3">
+                        <Field label={`New password for ${u.email}`}>
+                          <Input
+                            type="password"
+                            value={resetPassword}
+                            onChange={(e) => setResetPassword(e.target.value)}
+                            placeholder="min. 8 characters"
+                            minLength={8}
+                            className="w-64"
+                            autoFocus
+                          />
+                        </Field>
+                        <Button size="sm" loading={resetting} onClick={() => submitReset(u.id)}>
+                          Save new password
+                        </Button>
+                        <Button size="sm" variant="secondary" onClick={() => setResetTargetId(null)}>
+                          Cancel
+                        </Button>
+                      </div>
+                      {resetError && <p className="text-sm text-critical mt-2">{resetError}</p>}
+                    </Td>
+                  </tr>
+                )}
+              </Fragment>
             ))}
           </tbody>
         </Table>

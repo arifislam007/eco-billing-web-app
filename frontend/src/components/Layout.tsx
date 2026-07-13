@@ -12,12 +12,14 @@ import {
   LogOut,
   Menu,
   X,
-  Wifi,
   UserCog,
+  KeyRound,
 } from "lucide-react";
 import { useAuth, type AuthUser } from "../context/AuthContext";
 import { useMonth } from "../context/MonthContext";
 import { Select } from "./ui";
+import ChangePasswordModal from "./ChangePasswordModal";
+import logo from "../assets/eco-logo.jpg";
 
 const navItems: Array<{
   to: string;
@@ -40,6 +42,8 @@ export default function Layout() {
   const { user, logout } = useAuth();
   const { months, selectedMonth, setSelectedMonthId } = useMonth();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [accountMenuOpen, setAccountMenuOpen] = useState(false);
+  const [changePasswordOpen, setChangePasswordOpen] = useState(false);
 
   return (
     <div className="min-h-screen bg-page flex">
@@ -50,8 +54,8 @@ export default function Layout() {
         }`}
       >
         <div className="flex items-center gap-2 px-5 h-16 border-b border-white/15">
-          <div className="w-8 h-8 rounded-lg bg-white/15 flex items-center justify-center">
-            <Wifi size={16} className="text-white" />
+          <div className="w-11 h-11 rounded-lg bg-white flex items-center justify-center overflow-hidden shrink-0 p-0.5">
+            <img src={logo} alt="Econet" className="w-full h-full object-contain" />
           </div>
           <span className="text-white font-semibold text-lg">Econet</span>
           <button className="ml-auto lg:hidden text-violet-200" onClick={() => setMobileOpen(false)}>
@@ -120,17 +124,41 @@ export default function Layout() {
               ))}
             </Select>
           </div>
-          <div className="ml-auto flex items-center gap-3">
+          <div className="ml-auto flex items-center gap-3 relative">
             <span className="text-sm text-ink-secondary hidden sm:inline">{user?.email}</span>
-            <div className="w-8 h-8 rounded-full bg-accent-soft text-accent flex items-center justify-center text-xs font-semibold">
+            <button
+              onClick={() => setAccountMenuOpen((v) => !v)}
+              className="w-8 h-8 rounded-full bg-accent-soft text-accent flex items-center justify-center text-xs font-semibold"
+            >
               {user?.email?.[0]?.toUpperCase() ?? "?"}
-            </div>
+            </button>
+            {accountMenuOpen && (
+              <>
+                <div className="fixed inset-0 z-10" onClick={() => setAccountMenuOpen(false)} />
+                <div className="absolute right-0 top-10 z-20 w-48 bg-surface border border-border rounded-lg shadow-lg py-1">
+                  <button
+                    onClick={() => {
+                      setAccountMenuOpen(false);
+                      setChangePasswordOpen(true);
+                    }}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-sm text-ink hover:bg-page text-left"
+                  >
+                    <KeyRound size={15} />
+                    Change password
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </header>
         <main className="flex-1 px-4 py-6 lg:px-8 lg:py-8 max-w-6xl w-full mx-auto">
           <Outlet />
         </main>
       </div>
+
+      {changePasswordOpen && (
+        <ChangePasswordModal onClose={() => setChangePasswordOpen(false)} />
+      )}
     </div>
   );
 }

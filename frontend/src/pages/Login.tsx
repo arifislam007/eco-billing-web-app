@@ -1,14 +1,14 @@
 import { useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
-import { Wifi } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { ApiError } from "../api/client";
 import { Button, Card, Field, Input } from "../components/ui";
+import logo from "../assets/eco-logo.jpg";
 
 export default function Login() {
   const { login } = useAuth();
   const navigate = useNavigate();
-  const [email, setEmail] = useState("admin@econet.local");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -30,14 +30,10 @@ export default function Login() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-page px-4">
       <Card className="w-full max-w-sm p-8">
-        <div className="flex items-center gap-2 mb-6">
-          <div className="w-9 h-9 rounded-lg bg-accent flex items-center justify-center">
-            <Wifi size={18} className="text-white" />
-          </div>
-          <div>
-            <h1 className="text-lg font-semibold text-ink leading-none">Econet</h1>
-            <p className="text-xs text-ink-muted mt-0.5">ISP Accounting &amp; Voucher App</p>
-          </div>
+        <div className="flex flex-col items-center text-center mb-6">
+          <img src={logo} alt="Econet" className="w-20 h-20 object-contain mb-2" />
+          <h1 className="text-lg font-semibold text-ink leading-none">Econet</h1>
+          <p className="text-xs text-ink-muted mt-1">ISP Accounting &amp; Voucher App</p>
         </div>
 
         <form onSubmit={onSubmit} className="space-y-4">

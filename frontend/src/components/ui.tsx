@@ -186,6 +186,26 @@ export function EmptyState({ title, hint }: { title: string; hint?: string }) {
   );
 }
 
+export function Modal({
+  title,
+  onClose,
+  children,
+}: {
+  title: string;
+  onClose: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
+      <Card className="relative w-full max-w-sm p-6">
+        <h2 className="text-lg font-semibold text-ink mb-4">{title}</h2>
+        {children}
+      </Card>
+    </div>
+  );
+}
+
 export function LoadingState() {
   return (
     <div className="flex items-center gap-2 text-sm text-ink-muted py-10 justify-center">

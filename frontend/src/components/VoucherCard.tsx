@@ -1,6 +1,6 @@
-import { Wifi } from "lucide-react";
 import type { VoucherData } from "../api/types";
 import { money, pct } from "../format";
+import logo from "../assets/eco-logo.jpg";
 
 export default function VoucherCard({ data }: { data: VoucherData }) {
   const { month, partner, entry, generatedAt } = data;
@@ -8,12 +8,8 @@ export default function VoucherCard({ data }: { data: VoucherData }) {
   return (
     <div className="voucher-page bg-surface border border-border rounded-xl p-8 max-w-xl mx-auto shadow-sm">
       <div className="text-center border-b border-border pb-4 mb-4">
-        <div className="flex items-center justify-center gap-2 mb-1">
-          <div className="w-7 h-7 rounded-lg bg-accent flex items-center justify-center">
-            <Wifi size={14} className="text-white" />
-          </div>
-          <h2 className="text-2xl font-bold text-ink">Econet</h2>
-        </div>
+        <img src={logo} alt="Econet" className="w-14 h-14 object-contain mx-auto mb-1" />
+        <h2 className="text-2xl font-bold text-ink">Econet</h2>
         <p className="text-sm text-ink-secondary">Monthly Voucher — {month.label}</p>
         <p className="text-xs text-ink-muted">Generated: {new Date(generatedAt).toLocaleString()}</p>
       </div>

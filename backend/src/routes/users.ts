@@ -37,15 +37,22 @@ router.post("/", async (req, res) => {
 const updateSchema = z.object({
   role: z.enum(["admin", "staff"]).optional(),
   active: z.boolean().optional(),
+  // Admin resetting another user's password - no current-password check,
+  // unlike the self-service /api/auth/change-password.
+  password: z.string().min(8).optional(),
 });
 
 router.patch("/:id", async (req, res) => {
   const parsed = updateSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+  const { password, ...rest } = parsed.data;
 
   const user = await prisma.user.update({
     where: { id: req.params.id },
-    data: parsed.data,
+    data: {
+      ...rest,
+      ...(password ? { passwordHash: await bcrypt.hash(password, 10) } : {}),
+    },
     select: userSelect,
   });
   res.json(user);
