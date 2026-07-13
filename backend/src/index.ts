@@ -5,6 +5,7 @@ import authRouter from "./routes/auth";
 import partnersRouter from "./routes/partners";
 import monthsRouter from "./routes/months";
 import entriesRouter from "./routes/entries";
+import collectionEntriesRouter from "./routes/collectionEntries";
 import depositsRouter from "./routes/deposits";
 import costsRouter from "./routes/costs";
 import transactionsRouter from "./routes/transactions";
@@ -28,6 +29,9 @@ app.use("/api/auth", authRouter);
 app.use("/api/partners", requireAuth, partnersRouter);
 app.use("/api/months", requireAuth, monthsRouter);
 app.use("/api/entries", requireAuth, entriesRouter);
+// Add is open to both roles (per-handler); edit/delete are admin-only
+// (per-handler) - see routes/collectionEntries.ts.
+app.use("/api/collection-entries", requireAuth, collectionEntriesRouter);
 app.use("/api/deposits", requireAuth, requireRole("admin"), depositsRouter);
 app.use("/api/costs", requireAuth, requireRole("admin"), costsRouter);
 app.use("/api/transactions", requireAuth, requireRole("admin"), transactionsRouter);

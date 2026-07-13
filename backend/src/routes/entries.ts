@@ -2,10 +2,34 @@ import { Router } from "express";
 import { z } from "zod";
 import { prisma } from "../prisma";
 import { serializeEntries, serializeEntry } from "../entrySerializer";
+import { AuthedRequest, requireRole } from "../middleware/auth";
 
 const router = Router();
 
-router.get("/", async (req, res) => {
+/**
+ * Staff may only see totalUsers/totalCollection (and, via CollectionEntry,
+ * add to them) - commission/bonus/discount/dues/deposits are business terms
+ * the owner doesn't want data-entry staff to see, not just uneditable.
+ */
+function restrictForStaff(entry: {
+  id: string;
+  partnerId: string;
+  monthId: string;
+  totalUsers: number;
+  totalCollection: unknown;
+  partner?: unknown;
+}) {
+  return {
+    id: entry.id,
+    partnerId: entry.partnerId,
+    monthId: entry.monthId,
+    totalUsers: entry.totalUsers,
+    totalCollection: entry.totalCollection,
+    partner: entry.partner,
+  };
+}
+
+router.get("/", async (req: AuthedRequest, res) => {
   const monthId = req.query.monthId as string | undefined;
   if (!monthId) return res.status(400).json({ error: "monthId query param required" });
 
@@ -14,21 +38,28 @@ router.get("/", async (req, res) => {
     include: { partner: true },
     orderBy: { partner: { name: "asc" } },
   });
-  res.json(entries.length ? await serializeEntries(entries) : []);
+  const serialized = entries.length ? await serializeEntries(entries) : [];
+
+  if (req.role === "staff") {
+    return res.json(serialized.map(restrictForStaff));
+  }
+  res.json(serialized);
 });
 
+// Admin-only: the parameters here (commission %, bonus %, discount, last
+// month due) are never touched by staff, on the UI or via a raw API call.
+// totalUsers/totalCollection live on CollectionEntry now - see
+// routes/collectionEntries.ts for the add/edit/delete of those.
 const upsertSchema = z.object({
   partnerId: z.string().min(1),
   monthId: z.string().min(1),
-  totalUsers: z.number().int().min(0),
-  totalCollection: z.number().min(0),
   commissionPct: z.number().min(0).max(1).default(0.45),
   bonusPct: z.number().min(0).max(1).default(0),
   discount: z.number().min(0).default(0),
   lastMonthDue: z.number().default(0),
 });
 
-router.post("/", async (req, res) => {
+router.post("/", requireRole("admin"), async (req, res) => {
   const parsed = upsertSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
   const data = parsed.data;
@@ -36,8 +67,6 @@ router.post("/", async (req, res) => {
   const entry = await prisma.partnerMonthEntry.upsert({
     where: { partnerId_monthId: { partnerId: data.partnerId, monthId: data.monthId } },
     update: {
-      totalUsers: data.totalUsers,
-      totalCollection: data.totalCollection,
       commissionPct: data.commissionPct,
       bonusPct: data.bonusPct,
       discount: data.discount,
@@ -50,15 +79,13 @@ router.post("/", async (req, res) => {
 });
 
 const patchSchema = z.object({
-  totalUsers: z.number().int().min(0).optional(),
-  totalCollection: z.number().min(0).optional(),
   commissionPct: z.number().min(0).max(1).optional(),
   bonusPct: z.number().min(0).max(1).optional(),
   discount: z.number().min(0).optional(),
   lastMonthDue: z.number().optional(),
 });
 
-router.patch("/:id", async (req, res) => {
+router.patch("/:id", requireRole("admin"), async (req, res) => {
   const parsed = patchSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
 
@@ -69,7 +96,7 @@ router.patch("/:id", async (req, res) => {
   res.json(await serializeEntry(entry));
 });
 
-router.delete("/:id", async (req, res) => {
+router.delete("/:id", requireRole("admin"), async (req, res) => {
   await prisma.partnerMonthEntry.delete({ where: { id: req.params.id } });
   res.status(204).send();
 });

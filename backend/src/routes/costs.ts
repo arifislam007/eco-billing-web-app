@@ -2,6 +2,7 @@ import { Router } from "express";
 import { z } from "zod";
 import { prisma } from "../prisma";
 import { sumDecimals } from "../calc";
+import { serializeEntries } from "../entrySerializer";
 
 const router = Router();
 
@@ -53,25 +54,10 @@ router.delete("/:id", async (req, res) => {
 /** Recompute the auto "Bonus" cost line from the sum of all partners' bonusAmount for the month. */
 router.post("/recompute-bonus/:monthId", async (req, res) => {
   const { monthId } = req.params;
-  const { computeEntry } = await import("../calc");
 
-  const entries = await prisma.partnerMonthEntry.findMany({ where: { monthId } });
-  const deposits = await prisma.deposit.findMany({ where: { monthId } });
-
-  const totalBonus = sumDecimals(
-    entries.map((e) => {
-      const partnerDeposits = deposits.filter((d) => d.partnerId === e.partnerId);
-      const totalDeposit = sumDecimals(partnerDeposits.map((d) => d.amount));
-      return computeEntry({
-        totalCollection: e.totalCollection,
-        commissionPct: e.commissionPct,
-        bonusPct: e.bonusPct,
-        discount: e.discount,
-        lastMonthDue: e.lastMonthDue,
-        totalDeposit,
-      }).bonusAmount;
-    })
-  );
+  const rawEntries = await prisma.partnerMonthEntry.findMany({ where: { monthId } });
+  const serialized = rawEntries.length ? await serializeEntries(rawEntries) : [];
+  const totalBonus = sumDecimals(serialized.map((e) => e.bonusAmount));
 
   const bonusLine = await prisma.costItem.upsert({
     where: {

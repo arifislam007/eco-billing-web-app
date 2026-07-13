@@ -24,6 +24,8 @@ model User {
   role         Role     @default(admin)
   active       Boolean  @default(true)
   createdAt    DateTime @default(now())
+
+  collectionEntries CollectionEntry[]
 }
 
 model Partner {
@@ -35,8 +37,9 @@ model Partner {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  entries      PartnerMonthEntry[]
-  deposits     Deposit[]
+  entries           PartnerMonthEntry[]
+  deposits          Deposit[]
+  collectionEntries CollectionEntry[]
 }
 
 model Month {
@@ -47,25 +50,27 @@ model Month {
   status    MonthStatus @default(open)
   createdAt DateTime    @default(now())
 
-  entries      PartnerMonthEntry[]
-  deposits     Deposit[]
-  costItems    CostItem[]
-  transactions Transaction[]
+  entries           PartnerMonthEntry[]
+  deposits          Deposit[]
+  costItems         CostItem[]
+  transactions      Transaction[]
+  collectionEntries CollectionEntry[]
 
   @@unique([year, month])
 }
 
+/// Admin-set parameters for a partner's month. Total users/collection are
+/// NOT stored here anymore - they're the sum of that partner+month's
+/// CollectionEntry rows (see below), same pattern as Deposit -> totalDeposit.
 model PartnerMonthEntry {
   id        String @id @default(cuid())
   partnerId String
   monthId   String
 
-  totalUsers      Int
-  totalCollection Decimal @db.Decimal(14, 2)
-  commissionPct   Decimal @default(0.45) @db.Decimal(6, 4)
-  bonusPct        Decimal @default(0) @db.Decimal(6, 4)
-  discount        Decimal @default(0) @db.Decimal(14, 2)
-  lastMonthDue    Decimal @default(0) @db.Decimal(14, 2)
+  commissionPct Decimal @default(0.45) @db.Decimal(6, 4)
+  bonusPct      Decimal @default(0) @db.Decimal(6, 4)
+  discount      Decimal @default(0) @db.Decimal(14, 2)
+  lastMonthDue  Decimal @default(0) @db.Decimal(14, 2)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -74,6 +79,26 @@ model PartnerMonthEntry {
   month   Month   @relation(fields: [monthId], references: [id], onDelete: Cascade)
 
   @@unique([partnerId, monthId])
+}
+
+/// One row per submission. Staff can only INSERT (call it in as many times
+/// as needed during the month); editing/deleting an existing row is
+/// admin-only. A partner's effective totalUsers/totalCollection for the
+/// month is Σ these rows.
+model CollectionEntry {
+  id         String   @id @default(cuid())
+  partnerId  String
+  monthId    String
+  users      Int
+  collection Decimal  @db.Decimal(14, 2)
+  note       String?
+  createdAt  DateTime @default(now())
+
+  createdByUserId String?
+  createdBy       User?   @relation(fields: [createdByUserId], references: [id], onDelete: SetNull)
+
+  partner Partner @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  month   Month   @relation(fields: [monthId], references: [id], onDelete: Cascade)
 }
 
 model Deposit {

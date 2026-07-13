@@ -88,12 +88,25 @@ async function main() {
       create: {
         partnerId: partner.id,
         monthId: month.id,
-        totalUsers: p.users,
-        totalCollection: p.collection,
         commissionPct: p.commissionPct,
         bonusPct: p.bonusPct,
         discount: 0,
         lastMonthDue: 0,
+      },
+    });
+
+    // Re-runnable: replace this partner's seed collection entry rather than
+    // appending a duplicate one every time the seed script runs.
+    await prisma.collectionEntry.deleteMany({
+      where: { partnerId: partner.id, monthId: month.id, note: "Seed data" },
+    });
+    await prisma.collectionEntry.create({
+      data: {
+        partnerId: partner.id,
+        monthId: month.id,
+        users: p.users,
+        collection: p.collection,
+        note: "Seed data",
       },
     });
 

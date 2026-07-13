@@ -1,10 +1,15 @@
-import { useEffect, useState } from "react";
-import { ChevronLeft, ChevronRight, Printer } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { toPng } from "html-to-image";
+import { ChevronLeft, ChevronRight, Download, Printer } from "lucide-react";
 import { api } from "../api/client";
 import type { Partner, PartnerMonthEntry, VoucherData } from "../api/types";
 import { useMonth } from "../context/MonthContext";
 import VoucherCard from "../components/VoucherCard";
 import { Button, EmptyState, PageHeader, Select } from "../components/ui";
+
+function slug(text: string) {
+  return text.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+}
 
 export default function Vouchers() {
   const { selectedMonth } = useMonth();
@@ -13,6 +18,8 @@ export default function Vouchers() {
   const [voucher, setVoucher] = useState<VoucherData | null>(null);
   const [allVouchers, setAllVouchers] = useState<VoucherData[] | null>(null);
   const [mode, setMode] = useState<"single" | "all">("single");
+  const [exporting, setExporting] = useState(false);
+  const printAreaRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!selectedMonth) return;
@@ -41,6 +48,27 @@ export default function Vouchers() {
     const idx = partners.findIndex((p) => p.id === partnerId);
     const next = partners[(idx + delta + partners.length) % partners.length];
     if (next) setPartnerId(next.id);
+  }
+
+  async function exportAsImage() {
+    if (!printAreaRef.current || !selectedMonth) return;
+    setExporting(true);
+    try {
+      const dataUrl = await toPng(printAreaRef.current, {
+        pixelRatio: 2,
+        backgroundColor: "#ffffff",
+      });
+      const name =
+        mode === "single" && voucher
+          ? `voucher-${slug(voucher.partner.name)}-${slug(selectedMonth.label)}.png`
+          : `vouchers-${slug(selectedMonth.label)}.png`;
+      const link = document.createElement("a");
+      link.href = dataUrl;
+      link.download = name;
+      link.click();
+    } finally {
+      setExporting(false);
+    }
   }
 
   if (!selectedMonth)
@@ -94,19 +122,27 @@ export default function Vouchers() {
             <Button className="ml-auto" onClick={() => window.print()}>
               <Printer size={15} /> Print
             </Button>
+            <Button variant="secondary" loading={exporting} onClick={exportAsImage}>
+              <Download size={15} /> Export as Image
+            </Button>
           </div>
-          <div id="voucher-print-area">{voucher && <VoucherCard data={voucher} />}</div>
+          <div id="voucher-print-area" ref={printAreaRef}>
+            {voucher && <VoucherCard data={voucher} />}
+          </div>
         </>
       )}
 
       {mode === "all" && (
         <>
-          <div className="no-print">
+          <div className="no-print flex items-center gap-3">
             <Button onClick={() => window.print()}>
               <Printer size={15} /> Print All
             </Button>
+            <Button variant="secondary" loading={exporting} onClick={exportAsImage}>
+              <Download size={15} /> Export as Image
+            </Button>
           </div>
-          <div id="voucher-print-area" className="space-y-8">
+          <div id="voucher-print-area" ref={printAreaRef} className="space-y-8">
             {allVouchers?.map((v) => (
               <VoucherCard key={v.partner.id} data={v} />
             ))}

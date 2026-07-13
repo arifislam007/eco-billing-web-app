@@ -2,6 +2,7 @@ import { Router } from "express";
 import { z } from "zod";
 import { prisma } from "../prisma";
 import { computeEntry, sumDecimals } from "../calc";
+import { collectionTotals } from "../entrySerializer";
 import { requireRole } from "../middleware/auth";
 
 const router = Router();
@@ -41,8 +42,9 @@ router.post("/", requireRole("admin"), async (req, res) => {
       const depositSum = sumDecimals(
         prevMonthDeposits.filter((d) => d.partnerId === entry.partnerId).map((d) => d.amount)
       );
+      const { totalCollection } = await collectionTotals(entry.partnerId, entry.monthId);
       const computed = computeEntry({
-        totalCollection: entry.totalCollection,
+        totalCollection,
         commissionPct: entry.commissionPct,
         bonusPct: entry.bonusPct,
         discount: entry.discount,
@@ -50,12 +52,13 @@ router.post("/", requireRole("admin"), async (req, res) => {
         totalDeposit: depositSum,
       });
 
+      // New month starts with no CollectionEntry rows yet (totalUsers/
+      // totalCollection are 0 until staff/admin submits some) - only the
+      // admin-set params and the carried-forward due amount transfer over.
       await prisma.partnerMonthEntry.create({
         data: {
           partnerId: entry.partnerId,
           monthId: newMonth.id,
-          totalUsers: 0,
-          totalCollection: 0,
           commissionPct: entry.commissionPct,
           bonusPct: entry.bonusPct,
           discount: 0,

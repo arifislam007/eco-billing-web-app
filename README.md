@@ -33,7 +33,7 @@ This starts Postgres, runs migrations, seeds the **July-26** demo month
 |---|---|
 | `frontend` (nginx) | anywhere — this is the one public port |
 | `backend` (API) | `127.0.0.1` on the host only (for local `curl`/debugging), plus other containers via `backend:4000` — never the internet |
-| `db` (Postgres) | other containers only, via `db:5432` — no host port published at all |
+| `db` (Postgres) | other containers via `db:5432`, plus `127.0.0.1` on the host (needed for `npx prisma migrate dev`, which writes migration files to the repo and can't run inside the container image) — never the internet |
 
 If you deploy this on a machine with a public IP, only port `5173`
 (or whatever you map it to behind a reverse proxy/HTTPS) should be
@@ -112,9 +112,15 @@ npm run dev                 # http://localhost:5173
    roll each partner's `dueAfterBonus` from the currently selected month
    into the new month's `lastMonthDue` → **Create Month**.
 2. Switch to the new month with the selector in the header.
-3. Fill in **Monthly Entry** (users, collection, commission %, bonus %,
-   discount) per partner — computed columns (commission amount, business
-   amount, bonus, dues) update live and save per row.
+3. On **Monthly Entry**, add each partner's users/collection via the
+   "Add a collection entry" form — this can be submitted as many times as
+   needed during the month (morning batch, afternoon batch, a correction
+   run, etc.); a partner's total is the sum of everything submitted so
+   far, shown live in the summary table above. Once submitted, only an
+   admin can edit or delete an individual entry (see the log at the
+   bottom of the page) — this is enforced by the API, not just hidden in
+   the UI. Admins additionally set commission %, bonus %, discount, and
+   last month due per partner in the same summary table.
 4. Log deposits on **Deposits** as they come in — "Total Deposit" on the
    entry always reflects the sum of that partner's deposits, never a
    typed value.
@@ -139,10 +145,35 @@ guards, `frontend/src/App.tsx` and `components/Layout.tsx`):
 
 | | `admin` | `staff` |
 |---|---|---|
-| Monthly Entry, Vouchers | ✅ | ✅ |
+| Monthly Entry — add a Users/Collection submission (repeatable) | ✅ | ✅ |
+| Monthly Entry — edit or delete an existing submission | ✅ | ❌ |
+| Monthly Entry — Commission/Bonus %, Discount, Last Month Due, all computed columns (commission/business/bonus amounts, deposit, dues) | ✅ | ❌ not shown at all |
+| Vouchers (full breakdown, printing) | ✅ | ✅ |
 | Partners, Months (read) | ✅ | ✅ (needed to populate dropdowns) |
 | Dashboard, Deposits, Costs, Transactions | ✅ | ❌ |
 | Partners/Months (create/edit), Users | ✅ | ❌ |
+
+A partner's monthly **Users**/**Collection** total is not a single
+editable field — it's the sum of every `CollectionEntry` row submitted
+for that partner+month (`backend/prisma/schema.prisma`), the same
+pattern deposits already use for `totalDeposit`. `staff` can add a new
+row as many times as needed during the month (`POST
+/api/collection-entries`); editing or deleting an existing row is
+admin-only (`PATCH`/`DELETE /api/collection-entries/:id`,
+`requireRole("admin")`) — enforced server-side, not just hidden in the
+UI. The Monthly Entry screen shows a live-computed total per partner,
+an add form, and a log of every submission (admin sees Edit/Delete on
+each row; staff sees the log read-only, so they can confirm what
+they've entered).
+
+Commission %, bonus %, discount, and last month due are separate,
+admin-only parameters on `PartnerMonthEntry`
+(`backend/src/routes/entries.ts`) and, along with every amount computed
+from them, are withheld by the API entirely for a staff session — not
+just hidden in the UI, and any attempt to set them via a raw API call
+is silently ignored server-side. Vouchers are the one place staff
+*does* see the full commission/bonus/due breakdown, since printing
+that for partners is their job.
 
 Manage users from the **Users** screen (admin-only): create a new
 login with a role, or toggle a user's role/active status. A

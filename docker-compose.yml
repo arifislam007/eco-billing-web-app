@@ -8,8 +8,12 @@ services:
       POSTGRES_DB: econet
     volumes:
       - econet_pgdata:/var/lib/postgresql/data
-    # No published port: reachable only from other containers on this
-    # compose network (as "db:5432"), never from the host or internet.
+    # Loopback-only: needed so `npx prisma migrate dev` can run from the
+    # host (it writes migration files to the repo - can't run that inside
+    # the container, since the image is a COPY snapshot, not a live mount).
+    # Never reachable from the LAN or internet, same as the backend port.
+    ports:
+      - "127.0.0.1:5432:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U econet"]
       interval: 5s

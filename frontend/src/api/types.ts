@@ -14,25 +14,43 @@ export interface Month {
   status: "open" | "closed";
 }
 
+// A "staff" role session only ever gets totalUsers/totalCollection back from
+// the API (see backend/src/routes/entries.ts restrictForStaff) - everything
+// else is optional here to reflect that honestly.
 export interface PartnerMonthEntry {
   id: string;
   partnerId: string;
   monthId: string;
   totalUsers: number;
   totalCollection: string;
-  commissionPct: string;
-  bonusPct: string;
-  discount: string;
-  lastMonthDue: string;
   partner?: Partner;
+  commissionPct?: string;
+  bonusPct?: string;
+  discount?: string;
+  lastMonthDue?: string;
   // computed
-  depositBy15th: string;
-  totalDeposit: string;
-  commissionAmount: string;
-  businessAmount: string;
-  bonusAmount: string;
-  dueWithBonus: string;
-  dueAfterBonus: string;
+  depositBy15th?: string;
+  totalDeposit?: string;
+  commissionAmount?: string;
+  businessAmount?: string;
+  bonusAmount?: string;
+  dueWithBonus?: string;
+  dueAfterBonus?: string;
+}
+
+// One submission toward a partner's monthly total. Anyone can POST a new
+// one (staff's "input multiple times"); only admin can PATCH/DELETE an
+// existing row (a correction).
+export interface CollectionEntry {
+  id: string;
+  partnerId: string;
+  monthId: string;
+  users: number;
+  collection: string;
+  note: string | null;
+  createdAt: string;
+  createdByUserId: string | null;
+  createdBy?: { email: string } | null;
 }
 
 export interface Deposit {
@@ -86,9 +104,30 @@ export interface DashboardData {
   ledgerBalance: string;
 }
 
+// /api/vouchers is never role-restricted (staff needs the full breakdown to
+// print a voucher) - so unlike PartnerMonthEntry, every field is guaranteed.
+export interface VoucherEntry {
+  id: string;
+  partnerId: string;
+  monthId: string;
+  totalUsers: number;
+  totalCollection: string;
+  commissionPct: string;
+  bonusPct: string;
+  discount: string;
+  lastMonthDue: string;
+  depositBy15th: string;
+  totalDeposit: string;
+  commissionAmount: string;
+  businessAmount: string;
+  bonusAmount: string;
+  dueWithBonus: string;
+  dueAfterBonus: string;
+}
+
 export interface VoucherData {
   month: Month;
   partner: Partner;
-  entry: PartnerMonthEntry;
+  entry: VoucherEntry;
   generatedAt: string;
 }
