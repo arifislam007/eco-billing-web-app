@@ -8,8 +8,8 @@ services:
       POSTGRES_DB: econet
     volumes:
       - econet_pgdata:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
+    # No published port: reachable only from other containers on this
+    # compose network (as "db:5432"), never from the host or internet.
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U econet"]
       interval: 5s
@@ -27,17 +27,25 @@ services:
       JWT_SECRET: ${JWT_SECRET:-change-this-to-a-long-random-string}
       PORT: 4000
       RUN_SEED: ${RUN_SEED:-true}
+    # Bound to the host's loopback only, for local debugging (curl
+    # localhost:4000). Not reachable from the internet or the LAN.
+    # The frontend reaches it via the internal "backend:4000" DNS name,
+    # proxied through nginx below - it never needs a public port.
     ports:
-      - "4000:4000"
+      - "127.0.0.1:4000:4000"
 
   frontend:
     build:
       context: ./frontend
       args:
-        VITE_API_URL: ${VITE_API_URL:-http://localhost:4000/api}
+        # Relative path: nginx (see frontend/nginx.conf) proxies /api/* to
+        # the backend container internally, so the browser only ever talks
+        # to whatever host:port serves the frontend.
+        VITE_API_URL: ${VITE_API_URL:-/api}
     restart: unless-stopped
     depends_on:
       - backend
+    # The only port meant to be reachable publicly.
     ports:
       - "5173:80"
 

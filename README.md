@@ -21,14 +21,34 @@ docker compose up --build
 ```
 
 This starts Postgres, runs migrations, seeds the **July-26** demo month
-(13 partners, matching the original workbook), and serves:
+(13 partners, matching the original workbook), and serves the app at:
 
-- Frontend: http://localhost:5173
-- Backend API: http://localhost:4000/api
+- **http://localhost:5173** — the only port meant to be reachable
+  externally. nginx serves the frontend and reverse-proxies `/api/*` to
+  the backend container internally.
+
+**Network exposure is intentionally locked down:**
+
+| Service | Reachable from |
+|---|---|
+| `frontend` (nginx) | anywhere — this is the one public port |
+| `backend` (API) | `127.0.0.1` on the host only (for local `curl`/debugging), plus other containers via `backend:4000` — never the internet |
+| `db` (Postgres) | other containers only, via `db:5432` — no host port published at all |
+
+If you deploy this on a machine with a public IP, only port `5173`
+(or whatever you map it to behind a reverse proxy/HTTPS) should be
+opened in your firewall/security group. Don't publish `4000` or `5432`
+publicly — the backend has no rate limiting on login, and the DB uses
+placeholder credentials by default.
 
 **Demo logins:**
 - `admin@econet.local` / `changeme123` — full access
 - `staff@econet.local` / `changeme123` — restricted to Monthly Entry + Vouchers
+
+**Rotate these before any real/public deployment** — either edit
+`backend/prisma/seed.ts` before first run, or log in as admin and use
+the **Users** screen to deactivate the seeded accounts and create your
+own.
 
 Seeding only runs once meaningfully (it's idempotent via upsert) but
 re-runs on every container start by default. To disable it on
@@ -38,10 +58,24 @@ subsequent runs (e.g. once you have real data you don't want touched):
 RUN_SEED=false docker compose up
 ```
 
-Set a real `JWT_SECRET` for anything beyond local use:
+Set a real `JWT_SECRET` and DB password for anything beyond local use:
 
 ```bash
 JWT_SECRET=$(openssl rand -hex 32) docker compose up --build
+```
+
+(Also change `POSTGRES_PASSWORD` and `DATABASE_URL` in
+`docker-compose.yml` from the placeholder `econet`/`econet` if this
+will hold real data.)
+
+### Running Prisma commands against the containerized DB
+
+Since Postgres has no published port, run migration/seed commands
+inside the backend container rather than from the host:
+
+```bash
+docker compose exec backend npx prisma migrate deploy
+docker compose exec backend node dist/prisma/seed.js
 ```
 
 ## Run locally without Docker
