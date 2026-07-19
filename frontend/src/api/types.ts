@@ -92,6 +92,24 @@ export interface MonthTrendPoint {
   totalCost: string;
 }
 
+export interface PartnerTrendSeriesPoint {
+  monthId: string;
+  label: string;
+  totalUsers: number;
+  totalCollection: string;
+}
+
+export interface PartnerTrend {
+  partnerId: string;
+  partnerName: string;
+  series: PartnerTrendSeriesPoint[];
+}
+
+export interface DashboardTrends {
+  overall: MonthTrendPoint[];
+  byPartner: PartnerTrend[];
+}
+
 export interface MonthTotals {
   totalUsers: number;
   totalCollection: string;

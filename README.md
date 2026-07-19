@@ -9,7 +9,7 @@ printable per-partner vouchers.
 - **Frontend:** React + TypeScript + Vite + Tailwind CSS
 - **Backend:** Node.js + Express (TypeScript) REST API
 - **Database:** PostgreSQL via Prisma ORM
-- **Auth:** email/password login (bcrypt + JWT) with two roles — `admin` (full access) and `staff` (Monthly Entry + Vouchers only)
+- **Auth:** email/password login (bcrypt + JWT) with two roles — `admin` (full access) and `staff` (Monthly Entry + Vouchers only). Sessions auto-logout after 30 minutes of inactivity, or immediately if the token is invalid/expired (`frontend/src/context/AuthContext.tsx`).
 
 All money fields are stored as `Decimal` (never floats); rounding to 2
 decimal places happens only at the edges (`backend/src/calc.ts`, `round2`).
@@ -138,7 +138,10 @@ npm run dev                 # http://localhost:5173
 5. Edit **Costs** for the month; the "Bonus" line is auto-computed from
    the sum of all partners' bonus amounts (use "Recompute Bonus line" if
    you change entries after the line was created).
-6. Check **Dashboard** for totals and profit.
+6. Check **Dashboard** for totals, profit, per-partner comparisons (users
+   and revenue by partner for the selected month), and growth-over-time
+   line charts — both overall and per-partner (pick a partner from the
+   dropdown to see their individual users/revenue trend across months).
 7. **Close** the month once finalized (Months screen).
 
 ## Printing a voucher

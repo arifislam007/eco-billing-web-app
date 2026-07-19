@@ -17,6 +17,10 @@ export function setToken(token: string | null) {
   else localStorage.removeItem("econet_token");
 }
 
+// 401s from these paths are a business-logic result (wrong password), not
+// evidence the session/token itself is bad - don't force a global logout.
+const SESSION_EXEMPT_PATHS = ["/auth/login", "/auth/change-password"];
+
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const token = getToken();
   const res = await fetch(`${API_URL}${path}`, {
@@ -33,6 +37,9 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const body = await res.json().catch(() => ({}));
 
   if (!res.ok) {
+    if (res.status === 401 && !SESSION_EXEMPT_PATHS.includes(path)) {
+      window.dispatchEvent(new Event("econet:session-expired"));
+    }
     const message =
       typeof body?.error === "string" ? body.error : JSON.stringify(body?.error ?? res.statusText);
     throw new ApiError(res.status, message);

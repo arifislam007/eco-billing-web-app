@@ -10,16 +10,17 @@ import {
   TrendingUp,
 } from "lucide-react";
 import { api } from "../api/client";
-import type { DashboardData, MonthTrendPoint, PartnerMonthEntry } from "../api/types";
+import type { DashboardData, DashboardTrends, PartnerMonthEntry } from "../api/types";
 import { useMonth } from "../context/MonthContext";
 import { money, pct } from "../format";
-import { BarList, Card, EmptyState, LineChart, LoadingState, PageHeader, StatTile, Table, Td, Th, Thead, vizHues } from "../components/ui";
+import { BarList, Card, EmptyState, LineChart, LoadingState, PageHeader, Select, StatTile, Table, Td, Th, Thead, vizHues } from "../components/ui";
 
 export default function Dashboard() {
   const { selectedMonth } = useMonth();
   const [data, setData] = useState<DashboardData | null>(null);
   const [entries, setEntries] = useState<PartnerMonthEntry[]>([]);
-  const [trends, setTrends] = useState<MonthTrendPoint[]>([]);
+  const [trends, setTrends] = useState<DashboardTrends>({ overall: [], byPartner: [] });
+  const [selectedPartnerId, setSelectedPartnerId] = useState("");
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -37,7 +38,11 @@ export default function Dashboard() {
   }, [selectedMonth]);
 
   useEffect(() => {
-    api.get<MonthTrendPoint[]>("/dashboard/trends").then(setTrends);
+    api.get<DashboardTrends>("/dashboard/trends").then((t) => {
+      setTrends(t);
+      if (!selectedPartnerId && t.byPartner.length) setSelectedPartnerId(t.byPartner[0].partnerId);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   if (!selectedMonth)
@@ -55,9 +60,15 @@ export default function Dashboard() {
     .map((e) => ({ label: e.partner?.name ?? "—", value: Number(e.totalCollection) || 0 }))
     .sort((a, b) => b.value - a.value);
 
-  const userGrowth = trends.map((t) => ({ label: t.label, value: t.totalUsers }));
-  const revenueGrowth = trends.map((t) => ({ label: t.label, value: Number(t.totalCollection) || 0 }));
-  const costGrowth = trends.map((t) => ({ label: t.label, value: Number(t.totalCost) || 0 }));
+  const userGrowth = trends.overall.map((t) => ({ label: t.label, value: t.totalUsers }));
+  const revenueGrowth = trends.overall.map((t) => ({ label: t.label, value: Number(t.totalCollection) || 0 }));
+  const costGrowth = trends.overall.map((t) => ({ label: t.label, value: Number(t.totalCost) || 0 }));
+
+  const selectedPartnerTrend = trends.byPartner.find((p) => p.partnerId === selectedPartnerId);
+  const partnerUserGrowth =
+    selectedPartnerTrend?.series.map((s) => ({ label: s.label, value: s.totalUsers })) ?? [];
+  const partnerRevenueGrowth =
+    selectedPartnerTrend?.series.map((s) => ({ label: s.label, value: Number(s.totalCollection) || 0 })) ?? [];
 
   return (
     <div className="space-y-8">
@@ -159,6 +170,37 @@ export default function Dashboard() {
             <LineChart data={costGrowth} formatValue={(v) => money(v)} hue={vizHues[6]} />
           </Card>
         </div>
+      </section>
+
+      <section>
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
+          <h2 className="text-xs font-semibold text-ink-muted uppercase tracking-wide">
+            Partner growth over time
+          </h2>
+          {trends.byPartner.length > 0 && (
+            <Select value={selectedPartnerId} onChange={(e) => setSelectedPartnerId(e.target.value)}>
+              {trends.byPartner.map((p) => (
+                <option key={p.partnerId} value={p.partnerId}>
+                  {p.partnerName}
+                </option>
+              ))}
+            </Select>
+          )}
+        </div>
+        {trends.byPartner.length === 0 ? (
+          <EmptyState title="No partners yet" hint="Add a partner to see their growth over time." />
+        ) : (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <Card className="p-5">
+              <h3 className="text-sm font-semibold text-ink mb-2">User growth</h3>
+              <LineChart data={partnerUserGrowth} formatValue={(v) => v.toLocaleString()} hue={vizHues[0]} />
+            </Card>
+            <Card className="p-5">
+              <h3 className="text-sm font-semibold text-ink mb-2">Revenue growth</h3>
+              <LineChart data={partnerRevenueGrowth} formatValue={(v) => money(v)} hue={vizHues[1]} />
+            </Card>
+          </div>
+        )}
       </section>
 
       <section>
