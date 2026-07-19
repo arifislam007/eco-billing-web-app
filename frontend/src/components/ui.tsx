@@ -221,6 +221,95 @@ export function BarList({
   );
 }
 
+/**
+ * Single-series trend line (month-over-month growth). One hue, 2px line,
+ * light fill under the line in the same hue, recessive baseline, dots with
+ * native-tooltip hover, selective direct labels on the first/last point only
+ * (never a number on every point). No legend - a single series is named by
+ * the chart title, not a color key.
+ */
+export function LineChart({
+  data,
+  formatValue,
+  hue = "var(--color-accent)",
+}: {
+  data: Array<{ label: string; value: number }>;
+  formatValue: (v: number) => string;
+  hue?: string;
+}) {
+  if (data.length < 2) {
+    return (
+      <p className="text-sm text-ink-muted py-10 text-center">
+        Need at least 2 months of data to show a trend.
+      </p>
+    );
+  }
+
+  const width = 600;
+  const height = 220;
+  const padding = { top: 24, right: 16, bottom: 28, left: 16 };
+  const plotW = width - padding.left - padding.right;
+  const plotH = height - padding.top - padding.bottom;
+  const max = Math.max(...data.map((d) => d.value), 1);
+
+  const points = data.map((d, i) => ({
+    x: padding.left + (data.length === 1 ? 0 : (i / (data.length - 1)) * plotW),
+    y: padding.top + plotH - (d.value / max) * plotH,
+    ...d,
+  }));
+
+  const linePath = points.map((p, i) => `${i === 0 ? "M" : "L"} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(" ");
+  const baseline = padding.top + plotH;
+  const areaPath = `${linePath} L ${points[points.length - 1].x.toFixed(1)} ${baseline} L ${points[0].x.toFixed(1)} ${baseline} Z`;
+
+  return (
+    <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-auto">
+      <line
+        x1={padding.left}
+        y1={baseline}
+        x2={width - padding.right}
+        y2={baseline}
+        stroke="var(--color-border)"
+        strokeWidth={1}
+      />
+      <path d={areaPath} fill={hue} fillOpacity={0.12} stroke="none" />
+      <path d={linePath} fill="none" stroke={hue} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+      {points.map((p, i) => (
+        <circle key={i} cx={p.x} cy={p.y} r={3.5} fill={hue}>
+          <title>
+            {p.label}: {formatValue(p.value)}
+          </title>
+        </circle>
+      ))}
+      {[points[0], points[points.length - 1]].map((p, i) => (
+        <text
+          key={i}
+          x={p.x}
+          y={Math.max(p.y - 10, 12)}
+          textAnchor={i === 0 ? "start" : "end"}
+          fontSize={12}
+          fontWeight={600}
+          fill="var(--color-ink)"
+        >
+          {formatValue(p.value)}
+        </text>
+      ))}
+      {points.map((p, i) => (
+        <text
+          key={`x-${i}`}
+          x={p.x}
+          y={height - 8}
+          textAnchor={i === 0 ? "start" : i === points.length - 1 ? "end" : "middle"}
+          fontSize={10}
+          fill="var(--color-ink-muted)"
+        >
+          {p.label}
+        </text>
+      ))}
+    </svg>
+  );
+}
+
 export function EmptyState({ title, hint }: { title: string; hint?: string }) {
   return (
     <Card className="p-10 text-center">

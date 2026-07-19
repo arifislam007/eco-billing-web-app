@@ -10,15 +10,16 @@ import {
   TrendingUp,
 } from "lucide-react";
 import { api } from "../api/client";
-import type { DashboardData, PartnerMonthEntry } from "../api/types";
+import type { DashboardData, MonthTrendPoint, PartnerMonthEntry } from "../api/types";
 import { useMonth } from "../context/MonthContext";
 import { money, pct } from "../format";
-import { BarList, Card, EmptyState, LoadingState, PageHeader, StatTile, Table, Td, Th, Thead, vizHues } from "../components/ui";
+import { BarList, Card, EmptyState, LineChart, LoadingState, PageHeader, StatTile, Table, Td, Th, Thead, vizHues } from "../components/ui";
 
 export default function Dashboard() {
   const { selectedMonth } = useMonth();
   const [data, setData] = useState<DashboardData | null>(null);
   const [entries, setEntries] = useState<PartnerMonthEntry[]>([]);
+  const [trends, setTrends] = useState<MonthTrendPoint[]>([]);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -35,6 +36,10 @@ export default function Dashboard() {
       .finally(() => setLoading(false));
   }, [selectedMonth]);
 
+  useEffect(() => {
+    api.get<MonthTrendPoint[]>("/dashboard/trends").then(setTrends);
+  }, []);
+
   if (!selectedMonth)
     return <EmptyState title="No month selected" hint="Create a month to get started." />;
   if (loading || !data) return <LoadingState />;
@@ -49,6 +54,10 @@ export default function Dashboard() {
   const revenueByPartner = [...entries]
     .map((e) => ({ label: e.partner?.name ?? "—", value: Number(e.totalCollection) || 0 }))
     .sort((a, b) => b.value - a.value);
+
+  const userGrowth = trends.map((t) => ({ label: t.label, value: t.totalUsers }));
+  const revenueGrowth = trends.map((t) => ({ label: t.label, value: Number(t.totalCollection) || 0 }));
+  const costGrowth = trends.map((t) => ({ label: t.label, value: Number(t.totalCost) || 0 }));
 
   return (
     <div className="space-y-8">
@@ -128,6 +137,26 @@ export default function Dashboard() {
           <Card className="p-5">
             <h3 className="text-sm font-semibold text-ink mb-4">Revenue by partner</h3>
             <BarList data={revenueByPartner} formatValue={(v) => money(v)} hue={vizHues[1]} />
+          </Card>
+        </div>
+      </section>
+
+      <section>
+        <h2 className="text-xs font-semibold text-ink-muted uppercase tracking-wide mb-3">
+          Growth over time
+        </h2>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <Card className="p-5">
+            <h3 className="text-sm font-semibold text-ink mb-2">Total user growth</h3>
+            <LineChart data={userGrowth} formatValue={(v) => v.toLocaleString()} hue={vizHues[0]} />
+          </Card>
+          <Card className="p-5">
+            <h3 className="text-sm font-semibold text-ink mb-2">Total revenue growth</h3>
+            <LineChart data={revenueGrowth} formatValue={(v) => money(v)} hue={vizHues[1]} />
+          </Card>
+          <Card className="p-5">
+            <h3 className="text-sm font-semibold text-ink mb-2">Total cost growth</h3>
+            <LineChart data={costGrowth} formatValue={(v) => money(v)} hue={vizHues[6]} />
           </Card>
         </div>
       </section>

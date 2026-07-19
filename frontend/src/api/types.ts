@@ -84,6 +84,14 @@ export interface Transaction {
   runningBalance?: string;
 }
 
+export interface MonthTrendPoint {
+  monthId: string;
+  label: string;
+  totalUsers: number;
+  totalCollection: string;
+  totalCost: string;
+}
+
 export interface MonthTotals {
   totalUsers: number;
   totalCollection: string;
