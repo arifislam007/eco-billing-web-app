@@ -20,8 +20,7 @@ decimal places happens only at the edges (`backend/src/calc.ts`, `round2`).
 docker compose up --build
 ```
 
-This starts Postgres, runs migrations, seeds the **July-26** demo month
-(13 partners, matching the original workbook), and serves the app at:
+This starts Postgres, runs migrations, and serves the app at:
 
 - **http://localhost:5173** — the only port meant to be reachable
   externally. nginx serves the frontend and reverse-proxies `/api/*` to
@@ -41,21 +40,33 @@ opened in your firewall/security group. Don't publish `4000` or `5432`
 publicly — the backend has no rate limiting on login, and the DB uses
 placeholder credentials by default.
 
-**Demo logins:**
+Seeding is **off by default** (`RUN_SEED=false`) — a fresh `docker
+compose up` starts with an empty database and no login exists yet. To
+get the July-26 demo data (13 partners, matching the original
+workbook) plus two demo logins for local testing:
+
+```bash
+RUN_SEED=true docker compose up
+```
+
+**Demo logins** (only exist if you've run with `RUN_SEED=true`):
 - `admin@econet.local` / `changeme123` — full access
 - `staff@econet.local` / `changeme123` — restricted to Monthly Entry + Vouchers
 
 **Rotate these before any real/public deployment** — either edit
 `backend/prisma/seed.ts` before first run, or log in as admin and use
 the **Users** screen to deactivate the seeded accounts and create your
-own.
+own. Seeding is idempotent (upsert-based), so leaving `RUN_SEED=true`
+on for a real deployment won't duplicate data, but it will keep
+resetting the demo partners/month's admin-set fields back to seed
+values on every restart — turn it off once you have real data.
 
-Seeding only runs once meaningfully (it's idempotent via upsert) but
-re-runs on every container start by default. To disable it on
-subsequent runs (e.g. once you have real data you don't want touched):
+To wipe all business data (partners, months, entries, deposits, costs,
+transactions) while keeping user accounts, run this from `backend/`
+with `DATABASE_URL` pointed at the target database:
 
 ```bash
-RUN_SEED=false docker compose up
+npm run clear-data
 ```
 
 Set a real `JWT_SECRET` and DB password for anything beyond local use:

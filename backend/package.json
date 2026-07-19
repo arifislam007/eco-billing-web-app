@@ -10,6 +10,7 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "seed": "ts-node prisma/seed.ts",
+    "clear-data": "node clear-data.js",
     "test": "vitest run"
   },
   "dependencies": {

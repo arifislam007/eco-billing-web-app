@@ -30,7 +30,11 @@ services:
       DATABASE_URL: postgresql://econet:econet@db:5432/econet?schema=public
       JWT_SECRET: ${JWT_SECRET:-change-this-to-a-long-random-string}
       PORT: 4000
-      RUN_SEED: ${RUN_SEED:-true}
+      # Off by default so restarting the stack never brings the demo
+      # partners/month back once you've cleared them for real use. Set
+      # RUN_SEED=true only when you want the July-26 demo data (fresh
+      # install / testing).
+      RUN_SEED: ${RUN_SEED:-false}
     # Bound to the host's loopback only, for local debugging (curl
     # localhost:4000). Not reachable from the internet or the LAN.
     # The frontend reaches it via the internal "backend:4000" DNS name,
