@@ -10,22 +10,28 @@ import {
   TrendingUp,
 } from "lucide-react";
 import { api } from "../api/client";
-import type { DashboardData } from "../api/types";
+import type { DashboardData, PartnerMonthEntry } from "../api/types";
 import { useMonth } from "../context/MonthContext";
 import { money, pct } from "../format";
-import { Card, EmptyState, LoadingState, PageHeader, StatTile, Table, Td, Th, Thead, vizHues } from "../components/ui";
+import { BarList, Card, EmptyState, LoadingState, PageHeader, StatTile, Table, Td, Th, Thead, vizHues } from "../components/ui";
 
 export default function Dashboard() {
   const { selectedMonth } = useMonth();
   const [data, setData] = useState<DashboardData | null>(null);
+  const [entries, setEntries] = useState<PartnerMonthEntry[]>([]);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (!selectedMonth) return;
     setLoading(true);
-    api
-      .get<DashboardData>(`/dashboard/${selectedMonth.id}`)
-      .then(setData)
+    Promise.all([
+      api.get<DashboardData>(`/dashboard/${selectedMonth.id}`),
+      api.get<PartnerMonthEntry[]>(`/entries?monthId=${selectedMonth.id}`),
+    ])
+      .then(([dashboard, entryList]) => {
+        setData(dashboard);
+        setEntries(entryList);
+      })
       .finally(() => setLoading(false));
   }, [selectedMonth]);
 
@@ -36,6 +42,13 @@ export default function Dashboard() {
   const { totals, costs, profit, ledgerBalance } = data;
   const profitTone = Number(profit) < 0 ? "critical" : "good";
   const ledgerTone = Number(ledgerBalance) < 0 ? "critical" : "neutral";
+
+  const usersByPartner = [...entries]
+    .map((e) => ({ label: e.partner?.name ?? "—", value: e.totalUsers }))
+    .sort((a, b) => b.value - a.value);
+  const revenueByPartner = [...entries]
+    .map((e) => ({ label: e.partner?.name ?? "—", value: Number(e.totalCollection) || 0 }))
+    .sort((a, b) => b.value - a.value);
 
   return (
     <div className="space-y-8">
@@ -96,6 +109,26 @@ export default function Dashboard() {
             icon={TrendingUp}
             hue={vizHues[7]}
           />
+        </div>
+      </section>
+
+      <section>
+        <h2 className="text-xs font-semibold text-ink-muted uppercase tracking-wide mb-3">
+          Partner analysis
+        </h2>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <Card className="p-5">
+            <h3 className="text-sm font-semibold text-ink mb-4">Users by partner</h3>
+            <BarList
+              data={usersByPartner}
+              formatValue={(v) => v.toLocaleString()}
+              hue={vizHues[0]}
+            />
+          </Card>
+          <Card className="p-5">
+            <h3 className="text-sm font-semibold text-ink mb-4">Revenue by partner</h3>
+            <BarList data={revenueByPartner} formatValue={(v) => money(v)} hue={vizHues[1]} />
+          </Card>
         </div>
       </section>
 

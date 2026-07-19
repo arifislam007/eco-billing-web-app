@@ -177,6 +177,50 @@ export function StatTile({
   );
 }
 
+/**
+ * Horizontal bar list: sorted-descending comparison of one measure across
+ * categories. Single hue throughout - color isn't encoding anything extra
+ * here, bar length already carries the magnitude. Track is a faint step of
+ * the same hue (meter pattern), not a neutral gray, so state reads as one bar.
+ */
+export function BarList({
+  data,
+  formatValue,
+  hue = "var(--color-accent)",
+}: {
+  data: Array<{ label: string; value: number }>;
+  formatValue: (v: number) => string;
+  hue?: string;
+}) {
+  const max = Math.max(...data.map((d) => d.value), 1);
+  if (!data.length) {
+    return <p className="text-sm text-ink-muted py-6 text-center">No data for this month yet.</p>;
+  }
+  return (
+    <div className="space-y-2.5">
+      {data.map((d) => (
+        <div key={d.label} className="flex items-center gap-3">
+          <div className="w-28 shrink-0 text-sm text-ink-secondary truncate" title={d.label}>
+            {d.label}
+          </div>
+          <div
+            className="flex-1 h-3 rounded-full overflow-hidden"
+            style={{ background: `color-mix(in srgb, ${hue} 14%, transparent)` }}
+          >
+            <div
+              className="h-full rounded-full"
+              style={{ width: `${Math.max((d.value / max) * 100, 2)}%`, background: hue }}
+            />
+          </div>
+          <div className="w-24 shrink-0 text-right text-sm tabular font-medium text-ink">
+            {formatValue(d.value)}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export function EmptyState({ title, hint }: { title: string; hint?: string }) {
   return (
     <Card className="p-10 text-center">
