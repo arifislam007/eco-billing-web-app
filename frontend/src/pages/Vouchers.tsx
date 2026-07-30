@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import { toPng } from "html-to-image";
-import { ChevronLeft, ChevronRight, Download, Printer } from "lucide-react";
+import { ChevronLeft, ChevronRight, Download, FileText, Printer } from "lucide-react";
 import { api } from "../api/client";
 import type { Partner, PartnerMonthEntry, VoucherData } from "../api/types";
 import { useMonth } from "../context/MonthContext";
 import VoucherCard from "../components/VoucherCard";
 import { Button, EmptyState, PageHeader, Select } from "../components/ui";
+import { exportElementAsPdf } from "../lib/exportPdf";
 
 function slug(text: string) {
   return text.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
@@ -19,6 +20,7 @@ export default function Vouchers() {
   const [allVouchers, setAllVouchers] = useState<VoucherData[] | null>(null);
   const [mode, setMode] = useState<"single" | "all">("single");
   const [exporting, setExporting] = useState(false);
+  const [exportingPdf, setExportingPdf] = useState(false);
   const printAreaRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -68,6 +70,20 @@ export default function Vouchers() {
       link.click();
     } finally {
       setExporting(false);
+    }
+  }
+
+  async function exportAsPdf() {
+    if (!printAreaRef.current || !selectedMonth) return;
+    setExportingPdf(true);
+    try {
+      const name =
+        mode === "single" && voucher
+          ? `voucher-${slug(voucher.partner.name)}-${slug(selectedMonth.label)}.pdf`
+          : `vouchers-${slug(selectedMonth.label)}.pdf`;
+      await exportElementAsPdf(printAreaRef.current, name);
+    } finally {
+      setExportingPdf(false);
     }
   }
 
@@ -125,8 +141,11 @@ export default function Vouchers() {
             <Button variant="secondary" loading={exporting} onClick={exportAsImage}>
               <Download size={15} /> Export as Image
             </Button>
+            <Button variant="secondary" loading={exportingPdf} onClick={exportAsPdf}>
+              <FileText size={15} /> Export as PDF
+            </Button>
           </div>
-          <div id="voucher-print-area" ref={printAreaRef}>
+          <div className="print-area" ref={printAreaRef}>
             {voucher && <VoucherCard data={voucher} />}
           </div>
         </>
@@ -141,8 +160,11 @@ export default function Vouchers() {
             <Button variant="secondary" loading={exporting} onClick={exportAsImage}>
               <Download size={15} /> Export as Image
             </Button>
+            <Button variant="secondary" loading={exportingPdf} onClick={exportAsPdf}>
+              <FileText size={15} /> Export as PDF
+            </Button>
           </div>
-          <div id="voucher-print-area" ref={printAreaRef} className="space-y-8">
+          <div className="print-area space-y-8" ref={printAreaRef}>
             {allVouchers?.map((v) => (
               <VoucherCard key={v.partner.id} data={v} />
             ))}

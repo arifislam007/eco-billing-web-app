@@ -107,11 +107,11 @@ body {
   body * {
     visibility: hidden;
   }
-  #voucher-print-area,
-  #voucher-print-area * {
+  .print-area,
+  .print-area * {
     visibility: visible;
   }
-  #voucher-print-area {
+  .print-area {
     position: absolute;
     left: 0;
     top: 0;

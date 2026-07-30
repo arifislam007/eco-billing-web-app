@@ -149,7 +149,26 @@ npm run dev                 # http://localhost:5173
 Go to **Vouchers**, pick a partner (or use Prev/Next), and click **Print**
 — the browser print dialog opens with a print-optimized layout (nav/buttons
 hidden, one page, black on white). Use **Print all** to stack every
-partner's voucher for the month, one per page.
+partner's voucher for the month, one per page. **Export as Image** and
+**Export as PDF** are also available, same export pipeline as the Monthly
+Report below.
+
+## Monthly Report (admin-only)
+
+Go to **Monthly Report** for a one-page summary of every partner's Total
+Users, Total Bill (collection), Total Deposit, and Due After Bonus for the
+selected month, with a totals row. Four export options:
+
+- **Print** — same print-optimized layout as vouchers.
+- **Export as Image** — downloads a PNG (`html-to-image`).
+- **Export as PDF** — downloads a single-page PDF sized to the content
+  (`frontend/src/lib/exportPdf.ts`; reuses the same `html-to-image` capture
+  as the image export, then drops it into a `jsPDF` page). Embedded as
+  JPEG at 92% quality, not PNG — an uncompressed capture runs 8-10MB for a
+  one-page document; JPEG brings that down to a few hundred KB with no
+  visible difference on this flat, text-and-rules content.
+- **Export as CSV** — downloads a spreadsheet-ready `.csv` with the same
+  figures, for opening in Excel/Sheets. (Monthly Report only.)
 
 ## User roles & permissions
 

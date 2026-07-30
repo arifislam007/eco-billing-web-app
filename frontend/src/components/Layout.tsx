@@ -14,6 +14,7 @@ import {
   X,
   UserCog,
   KeyRound,
+  ClipboardList,
 } from "lucide-react";
 import { useAuth, type AuthUser } from "../context/AuthContext";
 import { useMonth } from "../context/MonthContext";
@@ -35,6 +36,7 @@ const navItems: Array<{
   { to: "/costs", label: "Costs", icon: Receipt, roles: ["admin"] },
   { to: "/transactions", label: "Transactions", icon: ArrowLeftRight, roles: ["admin"] },
   { to: "/vouchers", label: "Vouchers", icon: FileText },
+  { to: "/reports", label: "Monthly Report", icon: ClipboardList, roles: ["admin"] },
   { to: "/users", label: "Users", icon: UserCog, roles: ["admin"] },
 ];
 

@@ -12,6 +12,7 @@ import Costs from "./pages/Costs";
 import Transactions from "./pages/Transactions";
 import Vouchers from "./pages/Vouchers";
 import Users from "./pages/Users";
+import MonthlyReport from "./pages/MonthlyReport";
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
@@ -94,6 +95,14 @@ function AppRoutes() {
           }
         />
         <Route path="/vouchers" element={<Vouchers />} />
+        <Route
+          path="/reports"
+          element={
+            <RequireRole roles={["admin"]}>
+              <MonthlyReport />
+            </RequireRole>
+          }
+        />
         <Route
           path="/users"
           element={
