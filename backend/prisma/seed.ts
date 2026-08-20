@@ -146,10 +146,19 @@ async function main() {
   const totalCost = sumDecimals(COST_ITEMS.map((c) => c.amount)).add(totalBonus);
   const profit = computeProfit(totals.totalBusinessAmount, totalCost);
 
+  // Money is rounded to whole taka everywhere (roundMoney in calc.ts), so
+  // these totals land 1 taka above the old exact-precision figures - a
+  // handful of partners' businessAmount/bonusAmount fall on a .5 boundary
+  // (e.g. Helal Bhai: 151150 * 0.45 commission -> 83132.5 business) and each
+  // rounds up independently before being summed. That's expected, not a bug.
   console.log("\n=== July-26 Totals ===");
   console.log("Total Users:", totals.totalUsers, "(expected 2723)");
   console.log("Total Collection:", totals.totalCollection.toString(), "(expected 1268480)");
-  console.log("Total Business Amount:", totals.totalBusinessAmount.toString(), "(expected 625394)");
+  console.log(
+    "Total Business Amount:",
+    totals.totalBusinessAmount.toString(),
+    "(expected 625395 - was 625394 before whole-taka rounding)"
+  );
   console.log("Total Bonus (cost line):", totalBonus.toString());
   console.log("Total Cost:", totalCost.toString());
   console.log("Profit:", profit.toString());
@@ -158,9 +167,13 @@ async function main() {
   console.log("\n=== Bilal Bhai check ===");
   console.log("commissionAmount:", bilal.computed.commissionAmount.toString(), "(expected 62541)");
   console.log("businessAmount:", bilal.computed.businessAmount.toString(), "(expected 76439)");
-  console.log("bonusAmount:", bilal.computed.bonusAmount.toString(), "(expected ~2293.17)");
+  console.log("bonusAmount:", bilal.computed.bonusAmount.toString(), "(expected 2293 - exact is 2293.17)");
   console.log("dueWithBonus:", bilal.computed.dueWithBonus.toString(), "(expected 76439)");
-  console.log("dueAfterBonus:", bilal.computed.dueAfterBonus.toString(), "(expected ~74145.83)");
+  console.log(
+    "dueAfterBonus:",
+    bilal.computed.dueAfterBonus.toString(),
+    "(expected 74146 - exact is 74145.83)"
+  );
 
   console.log("\nSeed complete.");
 }

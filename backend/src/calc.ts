@@ -4,9 +4,18 @@ export type Num = Decimal | number | string;
 
 const D = (v: Num) => new Decimal(v);
 
-/** Round to 2 decimal places for display/storage. Single place to change rounding policy. */
+/** Round to 2 decimal places. Used for percentages (commission %, bonus %
+ * averages) - NOT for money, which is whole taka, see roundMoney below. */
 export function round2(v: Num): Decimal {
   return D(v).toDecimalPlaces(2);
+}
+
+/** Round to the nearest whole taka - no paisa/fractions anywhere. Single
+ * place to change the money rounding policy; every computed monetary
+ * figure (commission, business, bonus, dues, profit, ledger balance)
+ * passes through this. */
+export function roundMoney(v: Num): Decimal {
+  return D(v).toDecimalPlaces(0);
 }
 
 export interface EntryInputs {
@@ -53,11 +62,11 @@ export function computeEntry(inputs: EntryInputs): EntryComputed {
     .add(lastMonthDue);
 
   return {
-    commissionAmount: round2(commissionAmount),
-    businessAmount: round2(businessAmount),
-    bonusAmount: round2(bonusAmount),
-    dueWithBonus: round2(dueWithBonus),
-    dueAfterBonus: round2(dueAfterBonus),
+    commissionAmount: roundMoney(commissionAmount),
+    businessAmount: roundMoney(businessAmount),
+    bonusAmount: roundMoney(bonusAmount),
+    dueWithBonus: roundMoney(dueWithBonus),
+    dueAfterBonus: roundMoney(dueAfterBonus),
   };
 }
 
@@ -102,11 +111,11 @@ export function computeMonthTotals(
 }
 
 export function computeProfit(totalBusinessAmount: Num, totalCost: Num): Decimal {
-  return round2(D(totalBusinessAmount).sub(D(totalCost)));
+  return roundMoney(D(totalBusinessAmount).sub(D(totalCost)));
 }
 
 export function computeLedgerBalance(transactions: Array<{ send: Num; receive: Num }>): Decimal {
   const totalReceive = sumDecimals(transactions.map((t) => t.receive));
   const totalSend = sumDecimals(transactions.map((t) => t.send));
-  return round2(totalReceive.sub(totalSend));
+  return roundMoney(totalReceive.sub(totalSend));
 }

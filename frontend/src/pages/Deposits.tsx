@@ -83,8 +83,8 @@ export default function Deposits() {
           <Field label="Amount">
             <Input
               type="number"
-              min={0.01}
-              step="0.01"
+              min={1}
+              step="1"
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
               className="w-32"

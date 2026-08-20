@@ -5,11 +5,12 @@ import {
   computeMonthTotals,
   computeProfit,
   round2,
+  roundMoney,
   sumDecimals,
 } from "../calc";
 
 describe("computeEntry", () => {
-  it("matches Bilal Bhai from the July-26 seed fixture", () => {
+  it("matches Bilal Bhai from the July-26 seed fixture, money rounded to whole taka", () => {
     const result = computeEntry({
       totalCollection: 138980,
       commissionPct: 0.45,
@@ -21,9 +22,11 @@ describe("computeEntry", () => {
 
     expect(result.commissionAmount.toString()).toBe("62541");
     expect(result.businessAmount.toString()).toBe("76439");
-    expect(result.bonusAmount.toString()).toBe("2293.17");
+    // exact bonus is 2293.17 - rounded to the nearest whole taka
+    expect(result.bonusAmount.toString()).toBe("2293");
     expect(result.dueWithBonus.toString()).toBe("76439");
-    expect(result.dueAfterBonus.toString()).toBe("74145.83");
+    // exact due-after-bonus is 74145.83 - rounds up to 74146
+    expect(result.dueAfterBonus.toString()).toBe("74146");
   });
 
   it("treats missing deposit/discount/lastMonthDue as zero", () => {
@@ -110,7 +113,11 @@ describe("computeMonthTotals + computeProfit", () => {
     const totals = computeMonthTotals(rows);
     expect(totals.totalUsers).toBe(2723);
     expect(totals.totalCollection.toString()).toBe("1268480");
-    expect(totals.totalBusinessAmount.toString()).toBe("625394");
+    // Exact total is 625394; a couple of partners' businessAmount is itself
+    // a .5 value (e.g. Helal Bhai 151150 * 0.45 commission -> 83132.5
+    // business), each rounds up independently, so the sum of already-rounded
+    // parts lands one taka above the old exact-precision total.
+    expect(totals.totalBusinessAmount.toString()).toBe("625395");
   });
 
   it("computes profit as business amount minus total cost", () => {
@@ -119,20 +126,23 @@ describe("computeMonthTotals + computeProfit", () => {
     const totalCost = sumDecimals([409161, 6800, 12000, 7492]).add(totalBonus);
     const profit = computeProfit(totals.totalBusinessAmount, totalCost);
 
-    expect(totalBonus.toString()).toBe("26367.5");
-    expect(totalCost.toString()).toBe("461820.5");
-    expect(profit.toString()).toBe("163573.5");
+    // Sum of each partner's already-rounded (whole taka) bonus, not the
+    // exact fractional sum - 26367.495 exact, 26367 as rounded parts.
+    expect(totalBonus.toString()).toBe("26367");
+    expect(totalCost.toString()).toBe("461820");
+    expect(profit.toString()).toBe("163575");
   });
 });
 
 describe("computeLedgerBalance", () => {
-  it("sums receive minus send across transactions", () => {
+  it("sums receive minus send across transactions, rounded to whole taka", () => {
     const balance = computeLedgerBalance([
       { send: 100, receive: 500 },
       { send: 50, receive: 0 },
       { send: 0, receive: 25.5 },
     ]);
-    expect(balance.toString()).toBe("375.5");
+    // exact balance is 375.5, rounds up to 376
+    expect(balance.toString()).toBe("376");
   });
 
   it("returns zero for an empty ledger", () => {
@@ -141,8 +151,17 @@ describe("computeLedgerBalance", () => {
 });
 
 describe("round2", () => {
-  it("rounds to 2 decimal places", () => {
+  it("rounds to 2 decimal places - used for percentages, not money", () => {
     expect(round2(1.005).toString()).toBe("1.01");
     expect(round2(2.004).toString()).toBe("2");
+  });
+});
+
+describe("roundMoney", () => {
+  it("rounds to the nearest whole number - every monetary figure goes through this", () => {
+    expect(roundMoney(2293.17).toString()).toBe("2293");
+    expect(roundMoney(74145.83).toString()).toBe("74146");
+    expect(roundMoney(1.5).toString()).toBe("2");
+    expect(roundMoney(100).toString()).toBe("100");
   });
 });

@@ -55,8 +55,8 @@ const upsertSchema = z.object({
   monthId: z.string().min(1),
   commissionPct: z.number().min(0).max(1).default(0.45),
   bonusPct: z.number().min(0).max(1).default(0),
-  discount: z.number().min(0).default(0),
-  lastMonthDue: z.number().default(0),
+  discount: z.number().min(0).default(0).transform(Math.round),
+  lastMonthDue: z.number().default(0).transform(Math.round),
 });
 
 router.post("/", requireRole("admin"), async (req, res) => {
@@ -81,8 +81,8 @@ router.post("/", requireRole("admin"), async (req, res) => {
 const patchSchema = z.object({
   commissionPct: z.number().min(0).max(1).optional(),
   bonusPct: z.number().min(0).max(1).optional(),
-  discount: z.number().min(0).optional(),
-  lastMonthDue: z.number().optional(),
+  discount: z.number().min(0).transform(Math.round).optional(),
+  lastMonthDue: z.number().transform(Math.round).optional(),
 });
 
 router.patch("/:id", requireRole("admin"), async (req, res) => {

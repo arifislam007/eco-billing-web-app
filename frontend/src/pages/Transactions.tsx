@@ -86,7 +86,7 @@ export default function Transactions() {
             <Input
               type="number"
               min={0}
-              step="0.01"
+              step="1"
               value={send}
               onChange={(e) => setSend(e.target.value)}
               className="w-28"
@@ -96,7 +96,7 @@ export default function Transactions() {
             <Input
               type="number"
               min={0}
-              step="0.01"
+              step="1"
               value={receive}
               onChange={(e) => setReceive(e.target.value)}
               className="w-28"

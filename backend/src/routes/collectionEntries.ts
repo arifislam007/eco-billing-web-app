@@ -21,7 +21,7 @@ const createSchema = z.object({
   partnerId: z.string().min(1),
   monthId: z.string().min(1),
   users: z.number().int().min(0),
-  collection: z.number().min(0),
+  collection: z.number().min(0).transform(Math.round),
   note: z.string().optional(),
 });
 
@@ -48,7 +48,7 @@ router.post("/", async (req: AuthedRequest, res) => {
 
 const updateSchema = z.object({
   users: z.number().int().min(0).optional(),
-  collection: z.number().min(0).optional(),
+  collection: z.number().min(0).transform(Math.round).optional(),
   note: z.string().optional(),
 });
 

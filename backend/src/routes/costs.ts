@@ -18,7 +18,7 @@ router.get("/", async (req, res) => {
 const createSchema = z.object({
   monthId: z.string().min(1),
   label: z.string().min(1),
-  amount: z.number().min(0),
+  amount: z.number().min(0).transform(Math.round),
   note: z.string().optional(),
 });
 
@@ -31,7 +31,7 @@ router.post("/", async (req, res) => {
 
 const updateSchema = z.object({
   label: z.string().min(1).optional(),
-  amount: z.number().min(0).optional(),
+  amount: z.number().min(0).transform(Math.round).optional(),
   note: z.string().optional(),
 });
 

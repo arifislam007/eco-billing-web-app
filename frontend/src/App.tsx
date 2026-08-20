@@ -95,14 +95,10 @@ function AppRoutes() {
           }
         />
         <Route path="/vouchers" element={<Vouchers />} />
-        <Route
-          path="/reports"
-          element={
-            <RequireRole roles={["admin"]}>
-              <MonthlyReport />
-            </RequireRole>
-          }
-        />
+        {/* Open to both roles - staff access is gated server-side by the
+            admin-controlled toggle; the page shows a friendly message if
+            it's off, rather than a hard route redirect. */}
+        <Route path="/reports" element={<MonthlyReport />} />
         <Route
           path="/users"
           element={

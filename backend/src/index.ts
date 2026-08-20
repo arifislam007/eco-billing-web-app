@@ -12,6 +12,8 @@ import transactionsRouter from "./routes/transactions";
 import dashboardRouter from "./routes/dashboard";
 import vouchersRouter from "./routes/vouchers";
 import usersRouter from "./routes/users";
+import reportsRouter from "./routes/reports";
+import settingsRouter from "./routes/settings";
 import { requireAuth, requireRole } from "./middleware/auth";
 
 const app = express();
@@ -38,6 +40,12 @@ app.use("/api/transactions", requireAuth, requireRole("admin"), transactionsRout
 app.use("/api/dashboard", requireAuth, requireRole("admin"), dashboardRouter);
 app.use("/api/vouchers", requireAuth, vouchersRouter);
 app.use("/api/users", requireAuth, requireRole("admin"), usersRouter);
+// Access gated per-request inside the route (admin, or staff when the
+// admin-controlled toggle is on) - see routes/reports.ts.
+app.use("/api/reports", requireAuth, reportsRouter);
+// Read open to both roles (staff needs it for the nav/page-access check);
+// write is admin-only per-handler - see routes/settings.ts.
+app.use("/api/settings", requireAuth, settingsRouter);
 
 app.use((err: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
   console.error(err);

@@ -17,6 +17,15 @@ enum Role {
   staff
 }
 
+/// Single row (id fixed to "singleton") holding app-wide toggles admin can
+/// flip from the UI - starts as one flag (Monthly Report for staff) but the
+/// pattern extends to more without a schema change if that flag is ever a
+/// json blob instead. Kept as an explicit boolean column while there's only one.
+model AppSettings {
+  id                      String  @id @default("singleton")
+  allowStaffMonthlyReport Boolean @default(false)
+}
+
 model User {
   id           String   @id @default(cuid())
   email        String   @unique

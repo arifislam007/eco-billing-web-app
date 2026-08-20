@@ -21,7 +21,7 @@ const createSchema = z.object({
   partnerId: z.string().min(1),
   monthId: z.string().min(1),
   date: z.string().datetime().optional(),
-  amount: z.number().positive(),
+  amount: z.number().positive().transform(Math.round),
   medium: z.enum(["cash", "bkash", "bank"]).default("cash"),
   ref: z.string().optional(),
 });

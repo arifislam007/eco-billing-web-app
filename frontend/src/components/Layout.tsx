@@ -36,7 +36,9 @@ const navItems: Array<{
   { to: "/costs", label: "Costs", icon: Receipt, roles: ["admin"] },
   { to: "/transactions", label: "Transactions", icon: ArrowLeftRight, roles: ["admin"] },
   { to: "/vouchers", label: "Vouchers", icon: FileText },
-  { to: "/reports", label: "Monthly Report", icon: ClipboardList, roles: ["admin"] },
+  // Shown to both roles - staff access is gated server-side by an
+  // admin-controlled toggle, not by role; the page explains it if it's off.
+  { to: "/reports", label: "Monthly Report", icon: ClipboardList },
   { to: "/users", label: "Users", icon: UserCog, roles: ["admin"] },
 ];
 

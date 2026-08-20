@@ -218,7 +218,7 @@ export default function Entries() {
             <Input
               type="number"
               min={0}
-              step="0.01"
+              step="1"
               value={addCollection}
               onChange={(e) => setAddCollection(e.target.value)}
               className="w-32"
@@ -393,7 +393,7 @@ export default function Entries() {
                         <input
                           type="number"
                           min={0}
-                          step="0.01"
+                          step="1"
                           className={`${cellInput} w-28`}
                           value={editCollection}
                           onChange={(e) => setEditCollection(e.target.value)}

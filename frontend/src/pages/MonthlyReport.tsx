@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import { toPng } from "html-to-image";
 import { Download, FileSpreadsheet, FileText, Printer } from "lucide-react";
-import { api } from "../api/client";
-import type { PartnerMonthEntry } from "../api/types";
+import { api, ApiError } from "../api/client";
+import type { AppSettings, MonthlyReportRow } from "../api/types";
+import { useAuth } from "../context/AuthContext";
 import { useMonth } from "../context/MonthContext";
 import { money } from "../format";
-import { Button, Card, EmptyState, LoadingState, PageHeader } from "../components/ui";
+import { Button, Card, EmptyState, LoadingState, PageHeader, Switch } from "../components/ui";
 import { exportElementAsPdf } from "../lib/exportPdf";
 import logo from "../assets/eco-logo.jpg";
 
@@ -19,27 +20,73 @@ function csvCell(value: string | number) {
 }
 
 export default function MonthlyReport() {
+  const { user } = useAuth();
+  const isAdmin = user?.role === "admin";
   const { selectedMonth } = useMonth();
-  const [entries, setEntries] = useState<PartnerMonthEntry[]>([]);
+  const [rows, setRows] = useState<MonthlyReportRow[] | null>(null);
+  const [accessDenied, setAccessDenied] = useState(false);
+  const [settings, setSettings] = useState<AppSettings | null>(null);
+  const [togglingAccess, setTogglingAccess] = useState(false);
   const [loading, setLoading] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [exportingPdf, setExportingPdf] = useState(false);
   const printAreaRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    if (isAdmin) api.get<AppSettings>("/settings").then(setSettings);
+  }, [isAdmin]);
+
+  useEffect(() => {
     if (!selectedMonth) return;
     setLoading(true);
+    setAccessDenied(false);
     api
-      .get<PartnerMonthEntry[]>(`/entries?monthId=${selectedMonth.id}`)
-      .then(setEntries)
+      .get<MonthlyReportRow[]>(`/reports/monthly?monthId=${selectedMonth.id}`)
+      .then(setRows)
+      .catch((err) => {
+        if (err instanceof ApiError && err.status === 403) setAccessDenied(true);
+      })
       .finally(() => setLoading(false));
   }, [selectedMonth]);
 
+  async function toggleStaffAccess(next: boolean) {
+    setTogglingAccess(true);
+    try {
+      const updated = await api.patch<AppSettings>("/settings", { allowStaffMonthlyReport: next });
+      setSettings(updated);
+    } finally {
+      setTogglingAccess(false);
+    }
+  }
+
   if (!selectedMonth)
     return <EmptyState title="No month selected" hint="Select a month from the header first." />;
-  if (loading) return <LoadingState />;
 
-  const rows = [...entries].sort((a, b) => (a.partner?.name ?? "").localeCompare(b.partner?.name ?? ""));
+  const accessToggle = isAdmin && (
+    <div className="no-print flex items-center gap-3 mb-6">
+      <Switch
+        checked={settings?.allowStaffMonthlyReport ?? false}
+        onChange={toggleStaffAccess}
+        disabled={!settings || togglingAccess}
+        label="Allow staff to view Monthly Report"
+      />
+    </div>
+  );
+
+  if (accessDenied) {
+    return (
+      <div className="space-y-6">
+        <PageHeader title="Monthly Report" subtitle={selectedMonth.label} />
+        <EmptyState
+          title="Not available yet"
+          hint="The Monthly Report isn't enabled for your account yet. Ask an admin to turn it on."
+        />
+      </div>
+    );
+  }
+
+  if (loading || !rows) return <LoadingState />;
+
   const totalUsers = rows.reduce((sum, e) => sum + e.totalUsers, 0);
   const totalBill = rows.reduce((sum, e) => sum + (Number(e.totalCollection) || 0), 0);
   const totalDeposit = rows.reduce((sum, e) => sum + (Number(e.totalDeposit) || 0), 0);
@@ -70,7 +117,7 @@ export default function MonthlyReport() {
   }
 
   function exportAsCsv() {
-    if (!selectedMonth) return;
+    if (!selectedMonth || !rows) return;
     const header = ["Partner", "Total Users", "Total Bill", "Total Deposit", "Due After Bonus"];
     const lines = [
       header.map(csvCell).join(","),
@@ -118,6 +165,8 @@ export default function MonthlyReport() {
           </div>
         }
       />
+
+      {accessToggle}
 
       {!rows.length ? (
         <EmptyState title="No entries yet" hint="Add Monthly Entry rows for this month first." />

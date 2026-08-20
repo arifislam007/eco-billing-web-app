@@ -157,3 +157,21 @@ export interface VoucherData {
   entry: VoucherEntry;
   generatedAt: string;
 }
+
+// GET /api/reports/monthly - always the full shape (deposit/due included)
+// regardless of caller's role, unlike PartnerMonthEntry from /api/entries.
+// Access itself is gated server-side by AppSettings.allowStaffMonthlyReport.
+export interface MonthlyReportRow {
+  id: string;
+  partnerId: string;
+  partner: Partner;
+  totalUsers: number;
+  totalCollection: string;
+  totalDeposit: string;
+  dueAfterBonus: string;
+}
+
+export interface AppSettings {
+  id: string;
+  allowStaffMonthlyReport: boolean;
+}

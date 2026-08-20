@@ -121,6 +121,42 @@ export function Field({ label, children }: { label: string; children: ReactNode 
   );
 }
 
+export function Switch({
+  checked,
+  onChange,
+  label,
+  disabled,
+}: {
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+  label?: ReactNode;
+  disabled?: boolean;
+}) {
+  return (
+    <label className={cx("inline-flex items-center gap-2.5", disabled ? "opacity-50" : "cursor-pointer")}>
+      <button
+        type="button"
+        role="switch"
+        aria-checked={checked}
+        disabled={disabled}
+        onClick={() => onChange(!checked)}
+        className={cx(
+          "relative w-9 h-5 rounded-full transition-colors shrink-0",
+          checked ? "bg-accent" : "bg-border"
+        )}
+      >
+        <span
+          className={cx(
+            "absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform",
+            checked && "translate-x-4"
+          )}
+        />
+      </button>
+      {label && <span className="text-sm text-ink-secondary">{label}</span>}
+    </label>
+  );
+}
+
 export function Badge({
   children,
   tone = "neutral",

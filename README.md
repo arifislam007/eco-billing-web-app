@@ -153,11 +153,24 @@ partner's voucher for the month, one per page. **Export as Image** and
 **Export as PDF** are also available, same export pipeline as the Monthly
 Report below.
 
-## Monthly Report (admin-only)
+## Monthly Report
 
 Go to **Monthly Report** for a one-page summary of every partner's Total
 Users, Total Bill (collection), Total Deposit, and Due After Bonus for the
-selected month, with a totals row. Four export options:
+selected month, with a totals row.
+
+Admin always has access, plus a toggle right on the page — **"Allow staff
+to view Monthly Report"** — off by default. Turning it on gives `staff`
+the same report, exports included; turning it off immediately blocks them
+again. This is a live, admin-controlled setting (`AppSettings.
+allowStaffMonthlyReport`, one row in the DB, `GET`/`PATCH /api/settings`),
+not a role — the access check itself lives server-side on
+`GET /api/reports/monthly` (`backend/src/routes/reports.ts`), so a staff
+session can't get at the report just by hiding the nav item. The nav link
+is visible to both roles; the page shows a plain "not available yet"
+message if staff visits while it's off.
+
+Four export options:
 
 - **Print** — same print-optimized layout as vouchers.
 - **Export as Image** — downloads a PNG (`html-to-image`).
@@ -182,6 +195,7 @@ guards, `frontend/src/App.tsx` and `components/Layout.tsx`):
 | Monthly Entry — edit or delete an existing submission | ✅ | ❌ |
 | Monthly Entry — Commission/Bonus %, Discount, Last Month Due, all computed columns (commission/business/bonus amounts, deposit, dues) | ✅ | ❌ not shown at all |
 | Vouchers (full breakdown, printing) | ✅ | ✅ |
+| Monthly Report | ✅ | admin-controlled toggle, off by default (see below) |
 | Partners, Months (read) | ✅ | ✅ (needed to populate dropdowns) |
 | Dashboard, Deposits, Costs, Transactions | ✅ | ❌ |
 | Partners/Months (create/edit), Users | ✅ | ❌ |
@@ -243,3 +257,17 @@ ledgerBalance         = Σ receive - Σ send
 
 `totalDeposit` is always derived from the Deposits table — it cannot be
 typed directly on an entry.
+
+**Money is whole taka everywhere — no fractions.** Every computed
+monetary figure (commission, business, bonus, dues, profit, ledger
+balance) is rounded to the nearest whole number via `roundMoney` in
+`calc.ts` — the one place to change that policy, same pattern as
+`round2` for percentages (commission %/bonus % averages stay 2-decimal;
+those aren't money). Manually-entered amounts (deposits, costs,
+transactions, collection entries, discount, last month due) are rounded
+server-side too, in each route's zod schema (`.transform(Math.round)`),
+so a fraction can't sneak in via a raw API call either — enforcement
+isn't just the frontend's `step="1"` on those inputs. Rounding
+independent figures and then summing them can land a total a taka or
+two off the old exact-precision sum (e.g. two values on a `.5` boundary
+both round up) — that's expected, not a bug.
