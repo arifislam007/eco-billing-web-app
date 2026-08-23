@@ -39,6 +39,7 @@ router.get("/monthly", requireReportAccess, async (req, res) => {
       partner: partnerById.get(e.partnerId),
       totalUsers: e.totalUsers,
       totalCollection: e.totalCollection,
+      businessAmount: e.businessAmount,
       totalDeposit: e.totalDeposit,
       dueAfterBonus: e.dueAfterBonus,
     }))

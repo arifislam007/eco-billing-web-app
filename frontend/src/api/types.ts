@@ -167,6 +167,7 @@ export interface MonthlyReportRow {
   partner: Partner;
   totalUsers: number;
   totalCollection: string;
+  businessAmount: string;
   totalDeposit: string;
   dueAfterBonus: string;
 }
