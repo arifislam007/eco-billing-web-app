@@ -22,7 +22,7 @@ router.get("/monthly", requireReportAccess, async (req, res) => {
   if (!monthId) return res.status(400).json({ error: "monthId query param required" });
 
   const rawEntries = await prisma.partnerMonthEntry.findMany({
-    where: { monthId },
+    where: { monthId, partner: { active: true } },
     include: { partner: true },
     orderBy: { partner: { name: "asc" } },
   });
