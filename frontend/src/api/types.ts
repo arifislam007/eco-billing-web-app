@@ -168,6 +168,7 @@ export interface MonthlyReportRow {
   totalUsers: number;
   totalCollection: string;
   businessAmount: string;
+  bonusAmount: string;
   totalDeposit: string;
   dueAfterBonus: string;
 }

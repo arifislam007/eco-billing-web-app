@@ -90,6 +90,7 @@ export default function MonthlyReport() {
   const totalUsers = rows.reduce((sum, e) => sum + e.totalUsers, 0);
   const totalBill = rows.reduce((sum, e) => sum + (Number(e.totalCollection) || 0), 0);
   const totalBillAmount = rows.reduce((sum, e) => sum + (Number(e.businessAmount) || 0), 0);
+  const totalBonus = rows.reduce((sum, e) => sum + (Number(e.bonusAmount) || 0), 0);
   const totalDeposit = rows.reduce((sum, e) => sum + (Number(e.totalDeposit) || 0), 0);
   const totalDue = rows.reduce((sum, e) => sum + (Number(e.dueAfterBonus) || 0), 0);
 
@@ -119,7 +120,15 @@ export default function MonthlyReport() {
 
   function exportAsCsv() {
     if (!selectedMonth || !rows) return;
-    const header = ["Partner", "Total Users", "Total Bill", "Billing Amount", "Total Deposit", "Due After Bonus"];
+    const header = [
+      "Partner",
+      "Total Users",
+      "Total Bill",
+      "Billing Amount",
+      "Bonus Amount",
+      "Total Deposit",
+      "Due After Bonus",
+    ];
     const lines = [
       header.map(csvCell).join(","),
       ...rows.map((e) =>
@@ -128,13 +137,16 @@ export default function MonthlyReport() {
           e.totalUsers,
           Number(e.totalCollection) || 0,
           Number(e.businessAmount) || 0,
+          Number(e.bonusAmount) || 0,
           Number(e.totalDeposit) || 0,
           Number(e.dueAfterBonus) || 0,
         ]
           .map(csvCell)
           .join(",")
       ),
-      ["Total", totalUsers, totalBill, totalBillAmount, totalDeposit, totalDue].map(csvCell).join(","),
+      ["Total", totalUsers, totalBill, totalBillAmount, totalBonus, totalDeposit, totalDue]
+        .map(csvCell)
+        .join(","),
     ];
     const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
@@ -189,6 +201,7 @@ export default function MonthlyReport() {
                   <th className="text-right py-2 font-medium">Users</th>
                   <th className="text-right py-2 font-medium">Total Bill</th>
                   <th className="text-right py-2 font-medium">Billing Amount</th>
+                  <th className="text-right py-2 font-medium">Bonus Amount</th>
                   <th className="text-right py-2 font-medium">Total Deposit</th>
                   <th className="text-right py-2 font-medium">Due After Bonus</th>
                 </tr>
@@ -200,6 +213,7 @@ export default function MonthlyReport() {
                     <td className="py-2 text-right tabular text-ink">{e.totalUsers.toLocaleString()}</td>
                     <td className="py-2 text-right tabular text-ink">{money(e.totalCollection)}</td>
                     <td className="py-2 text-right tabular text-ink">{money(e.businessAmount ?? 0)}</td>
+                    <td className="py-2 text-right tabular text-ink">{money(e.bonusAmount ?? 0)}</td>
                     <td className="py-2 text-right tabular text-ink">{money(e.totalDeposit ?? 0)}</td>
                     <td className="py-2 text-right tabular text-ink">{money(e.dueAfterBonus ?? 0)}</td>
                   </tr>
@@ -211,6 +225,7 @@ export default function MonthlyReport() {
                   <td className="py-2.5 text-right tabular text-ink">{totalUsers.toLocaleString()}</td>
                   <td className="py-2.5 text-right tabular text-ink">{money(totalBill)}</td>
                   <td className="py-2.5 text-right tabular text-ink">{money(totalBillAmount)}</td>
+                  <td className="py-2.5 text-right tabular text-ink">{money(totalBonus)}</td>
                   <td className="py-2.5 text-right tabular text-ink">{money(totalDeposit)}</td>
                   <td className="py-2.5 text-right tabular text-ink">{money(totalDue)}</td>
                 </tr>
