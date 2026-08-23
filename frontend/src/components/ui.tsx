@@ -1,6 +1,6 @@
 import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode, SelectHTMLAttributes, TableHTMLAttributes, TdHTMLAttributes, ThHTMLAttributes } from "react";
 import type { LucideIcon } from "lucide-react";
-import { Loader2 } from "lucide-react";
+import { Inbox, Loader2 } from "lucide-react";
 
 export const vizHues = [
   "var(--color-viz-1)",
@@ -13,13 +13,27 @@ export const vizHues = [
   "var(--color-viz-8)",
 ];
 
-function cx(...classes: Array<string | false | undefined>) {
+export function cx(...classes: Array<string | false | undefined>) {
   return classes.filter(Boolean).join(" ");
 }
 
-export function Card({ children, className }: { children: ReactNode; className?: string }) {
+export function Card({
+  children,
+  className,
+  hover,
+}: {
+  children: ReactNode;
+  className?: string;
+  hover?: boolean;
+}) {
   return (
-    <div className={cx("bg-surface border border-border rounded-xl shadow-sm", className)}>
+    <div
+      className={cx(
+        "bg-surface border border-border rounded-xl shadow-[var(--shadow-sm)] transition-shadow",
+        hover && "hover:shadow-[var(--shadow-md)]",
+        className
+      )}
+    >
       {children}
     </div>
   );
@@ -58,8 +72,8 @@ export function Button({
   loading?: boolean;
 }) {
   const variants = {
-    primary: "bg-accent text-white hover:bg-accent-dark disabled:opacity-50",
-    secondary: "bg-surface border border-border text-ink hover:bg-page disabled:opacity-50",
+    primary: "bg-accent text-white shadow-[var(--shadow-xs)] hover:bg-accent-dark hover:shadow-[var(--shadow-sm)] disabled:opacity-50 disabled:shadow-none",
+    secondary: "bg-surface border border-border text-ink hover:bg-page hover:border-ink-muted/40 disabled:opacity-50",
     ghost: "text-ink-secondary hover:bg-page disabled:opacity-50",
     danger: "text-critical hover:bg-critical-soft disabled:opacity-50",
   };
@@ -70,7 +84,7 @@ export function Button({
   return (
     <button
       className={cx(
-        "inline-flex items-center justify-center gap-1.5 rounded-lg font-medium transition-colors",
+        "inline-flex items-center justify-center gap-1.5 rounded-lg font-medium transition-all active:scale-[0.98]",
         variants[variant],
         sizes[size],
         className
@@ -195,14 +209,14 @@ export function StatTile({
 }) {
   const valueTone = tone === "good" ? "text-good" : tone === "critical" ? "text-critical" : "text-ink";
   return (
-    <Card className="p-4">
-      <div className="flex items-center gap-2 mb-1.5">
+    <Card hover className="p-4">
+      <div className="flex items-center gap-2.5 mb-2">
         {Icon && (
           <span
-            className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
+            className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
             style={{ background: `color-mix(in srgb, ${hue} 16%, transparent)`, color: hue }}
           >
-            <Icon size={15} />
+            <Icon size={16} />
           </span>
         )}
         <div className="text-xs font-medium text-ink-muted uppercase tracking-wide">{label}</div>
@@ -349,6 +363,9 @@ export function LineChart({
 export function EmptyState({ title, hint }: { title: string; hint?: string }) {
   return (
     <Card className="p-10 text-center">
+      <div className="w-11 h-11 rounded-full bg-page flex items-center justify-center mx-auto mb-3 text-ink-muted">
+        <Inbox size={20} />
+      </div>
       <p className="text-sm font-medium text-ink-secondary">{title}</p>
       {hint && <p className="text-xs text-ink-muted mt-1">{hint}</p>}
     </Card>
@@ -366,8 +383,8 @@ export function Modal({
 }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
-      <Card className="relative w-full max-w-sm p-6">
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-[2px]" onClick={onClose} />
+      <Card className="relative w-full max-w-sm p-6 shadow-[var(--shadow-lg)]">
         <h2 className="text-lg font-semibold text-ink mb-4">{title}</h2>
         {children}
       </Card>
@@ -385,7 +402,7 @@ export function LoadingState() {
 }
 
 export function Table({ className, ...props }: TableHTMLAttributes<HTMLTableElement>) {
-  return <table className={cx("w-full text-sm", className)} {...props} />;
+  return <table className={cx("w-full text-sm [&_tbody_tr]:transition-colors [&_tbody_tr:hover]:bg-page/70", className)} {...props} />;
 }
 
 export function Thead({ children }: { children: ReactNode }) {

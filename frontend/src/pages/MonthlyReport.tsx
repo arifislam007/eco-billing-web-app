@@ -186,9 +186,11 @@ export default function MonthlyReport() {
         <EmptyState title="No entries yet" hint="Add Monthly Entry rows for this month first." />
       ) : (
         <div className="print-area" ref={printAreaRef}>
-          <Card className="p-8 max-w-3xl mx-auto">
-            <div className="text-center border-b border-border pb-4 mb-4">
-              <img src={logo} alt="Econet" className="w-14 h-14 object-contain mx-auto mb-1" />
+          <Card className="p-8 max-w-3xl mx-auto shadow-[var(--shadow-md)]">
+            <div className="text-center border-b border-border pb-5 mb-4">
+              <div className="w-16 h-16 rounded-2xl bg-white flex items-center justify-center overflow-hidden p-1.5 shadow-[var(--shadow-sm)] mx-auto mb-2">
+                <img src={logo} alt="Econet" className="w-full h-full object-contain" />
+              </div>
               <h2 className="text-2xl font-bold text-ink">Econet</h2>
               <p className="text-sm text-ink-secondary">Monthly Report — {selectedMonth.label}</p>
               <p className="text-xs text-ink-muted">Generated: {new Date().toLocaleString()}</p>

@@ -13,7 +13,7 @@ import { api } from "../api/client";
 import type { DashboardData, DashboardTrends, PartnerMonthEntry } from "../api/types";
 import { useMonth } from "../context/MonthContext";
 import { money, pct } from "../format";
-import { BarList, Card, EmptyState, LineChart, LoadingState, PageHeader, Select, StatTile, Table, Td, Th, Thead, vizHues } from "../components/ui";
+import { BarList, Card, cx, EmptyState, LineChart, LoadingState, PageHeader, Select, StatTile, Table, Td, Th, Thead, vizHues } from "../components/ui";
 
 export default function Dashboard() {
   const { selectedMonth } = useMonth();
@@ -73,6 +73,33 @@ export default function Dashboard() {
   return (
     <div className="space-y-8">
       <PageHeader title={`${selectedMonth.label} Dashboard`} subtitle="Monthly summary and roll-ups" />
+
+      <section className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <Card className="p-5 relative overflow-hidden">
+          <div
+            className="absolute inset-y-0 left-0 w-1"
+            style={{ background: profitTone === "good" ? "var(--color-good)" : "var(--color-critical)" }}
+          />
+          <p className="text-xs font-medium text-ink-muted uppercase tracking-wide mb-1.5">
+            Profit — Business Amount minus Total Cost
+          </p>
+          <p className={cx("text-3xl font-bold tabular", profitTone === "good" ? "text-good" : "text-critical")}>
+            {money(profit)}
+          </p>
+        </Card>
+        <Card className="p-5 relative overflow-hidden">
+          <div
+            className="absolute inset-y-0 left-0 w-1"
+            style={{ background: ledgerTone === "critical" ? "var(--color-critical)" : "var(--color-accent)" }}
+          />
+          <p className="text-xs font-medium text-ink-muted uppercase tracking-wide mb-1.5">
+            Ledger Balance — bKash receive minus send
+          </p>
+          <p className={cx("text-3xl font-bold tabular", ledgerTone === "critical" ? "text-critical" : "text-ink")}>
+            {money(ledgerBalance)}
+          </p>
+        </Card>
+      </section>
 
       <section>
         <h2 className="text-xs font-semibold text-ink-muted uppercase tracking-wide mb-3">
@@ -230,19 +257,6 @@ export default function Dashboard() {
             </tbody>
           </Table>
         </Card>
-      </section>
-
-      <section className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <StatTile
-          label="Profit (Business Amount − Total Cost)"
-          value={money(profit)}
-          tone={profitTone}
-        />
-        <StatTile
-          label="Ledger Balance (Σ receive − Σ send)"
-          value={money(ledgerBalance)}
-          tone={ledgerTone}
-        />
       </section>
     </div>
   );

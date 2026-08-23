@@ -33,10 +33,20 @@ export default function Login() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-page px-4">
-      <Card className="w-full max-w-sm p-8">
+    <div className="min-h-screen flex items-center justify-center bg-page px-4 relative overflow-hidden">
+      <div
+        className="absolute -top-40 -right-40 w-96 h-96 rounded-full opacity-20 blur-3xl pointer-events-none"
+        style={{ background: "linear-gradient(135deg, var(--color-sidebar), var(--color-sidebar-to))" }}
+      />
+      <div
+        className="absolute -bottom-40 -left-40 w-96 h-96 rounded-full opacity-10 blur-3xl pointer-events-none"
+        style={{ background: "linear-gradient(135deg, var(--color-sidebar-to), var(--color-sidebar))" }}
+      />
+      <Card className="w-full max-w-sm p-8 shadow-[var(--shadow-lg)] relative">
         <div className="flex flex-col items-center text-center mb-6">
-          <img src={logo} alt="Econet" className="w-20 h-20 object-contain mb-2" />
+          <div className="w-20 h-20 rounded-2xl bg-white flex items-center justify-center overflow-hidden p-1.5 shadow-[var(--shadow-sm)] mb-3">
+            <img src={logo} alt="Econet" className="w-full h-full object-contain" />
+          </div>
           <h1 className="text-lg font-semibold text-ink leading-none">Econet</h1>
           <p className="text-xs text-ink-muted mt-1">ISP Accounting &amp; Voucher App</p>
         </div>
