@@ -13,7 +13,9 @@ import { api } from "../api/client";
 import type { DashboardData, DashboardTrends, PartnerMonthEntry } from "../api/types";
 import { useMonth } from "../context/MonthContext";
 import { money, pct } from "../format";
-import { BarList, Card, cx, EmptyState, LineChart, LoadingState, PageHeader, Select, StatTile, Table, Td, Th, Thead, vizHues } from "../components/ui";
+import { CostSummary } from "../components/CostSummary";
+import { categorizeCost, costCategory } from "../lib/costCategories";
+import { BarChart, BarList, Card, cx, EmptyState, LineChart, LoadingState, PageHeader, Select, StatTile, Table, Td, Th, Thead, vizHues } from "../components/ui";
 
 export default function Dashboard() {
   const { selectedMonth } = useMonth();
@@ -186,7 +188,7 @@ export default function Dashboard() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           <Card className="p-5">
             <h3 className="text-sm font-semibold text-ink mb-2">Total user growth</h3>
-            <LineChart data={userGrowth} formatValue={(v) => v.toLocaleString()} hue={vizHues[0]} />
+            <BarChart data={userGrowth} formatValue={(v) => v.toLocaleString()} hue={vizHues[0]} />
           </Card>
           <Card className="p-5">
             <h3 className="text-sm font-semibold text-ink mb-2">Total revenue growth</h3>
@@ -220,7 +222,7 @@ export default function Dashboard() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <Card className="p-5">
               <h3 className="text-sm font-semibold text-ink mb-2">User growth</h3>
-              <LineChart data={partnerUserGrowth} formatValue={(v) => v.toLocaleString()} hue={vizHues[0]} />
+              <BarChart data={partnerUserGrowth} formatValue={(v) => v.toLocaleString()} hue={vizHues[0]} />
             </Card>
             <Card className="p-5">
               <h3 className="text-sm font-semibold text-ink mb-2">Revenue growth</h3>
@@ -232,31 +234,37 @@ export default function Dashboard() {
 
       <section>
         <h2 className="text-xs font-semibold text-ink-muted uppercase tracking-wide mb-3">Cost block</h2>
-        <Card className="overflow-hidden">
-          <Table>
-            <Thead>
-              <tr>
-                <Th>Label</Th>
-                <Th className="text-right">Amount</Th>
-              </tr>
-            </Thead>
-            <tbody>
-              {costs.items.map((c) => (
-                <tr key={c.id}>
-                  <Td>
-                    {c.label}{" "}
-                    {c.isComputedBonus && <span className="text-xs text-ink-muted">(auto)</span>}
-                  </Td>
-                  <Td className="text-right tabular">{money(c.amount)}</Td>
+        <div className="space-y-4">
+          <CostSummary items={costs.items} totalCost={costs.totalCost} />
+          <Card className="overflow-hidden">
+            <Table>
+              <Thead>
+                <tr>
+                  <Th>Label</Th>
+                  <Th>Category</Th>
+                  <Th className="text-right">Amount</Th>
                 </tr>
-              ))}
-              <tr className="font-semibold bg-page">
-                <Td>Total Cost</Td>
-                <Td className="text-right tabular">{money(costs.totalCost)}</Td>
-              </tr>
-            </tbody>
-          </Table>
-        </Card>
+              </Thead>
+              <tbody>
+                {costs.items.map((c) => (
+                  <tr key={c.id}>
+                    <Td>
+                      {c.label}{" "}
+                      {c.isComputedBonus && <span className="text-xs text-ink-muted">(auto)</span>}
+                    </Td>
+                    <Td className="text-ink-secondary">{costCategory(categorizeCost(c)).label}</Td>
+                    <Td className="text-right tabular">{money(c.amount)}</Td>
+                  </tr>
+                ))}
+                <tr className="font-semibold bg-page">
+                  <Td>Total Cost</Td>
+                  <Td></Td>
+                  <Td className="text-right tabular">{money(costs.totalCost)}</Td>
+                </tr>
+              </tbody>
+            </Table>
+          </Card>
+        </div>
       </section>
     </div>
   );

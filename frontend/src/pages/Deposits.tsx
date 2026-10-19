@@ -3,7 +3,8 @@ import { api, ApiError } from "../api/client";
 import type { Deposit, Partner } from "../api/types";
 import { useMonth } from "../context/MonthContext";
 import { money } from "../format";
-import { Button, Card, EmptyState, Field, Input, PageHeader, Select, Table, Td, Th, Thead } from "../components/ui";
+import { Badge, Button, Card, EmptyState, Field, Input, PageHeader, Select, Table, Td, Th, Thead, vizHues } from "../components/ui";
+import { DepositSummary } from "../components/CostSummary";
 
 export default function Deposits() {
   const { selectedMonth } = useMonth();
@@ -55,9 +56,26 @@ export default function Deposits() {
     }
   }
 
-  async function remove(id: string) {
-    await api.delete(`/deposits/${id}`);
-    await refresh();
+  async function remove(d: Deposit) {
+    const name = partnerName(d);
+    if (!window.confirm(`Delete deposit of ${money(d.amount)} from ${name}? This cannot be undone.`)) return;
+    setError(null);
+    try {
+      await api.delete(`/deposits/${d.id}`);
+      await refresh();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Failed to delete deposit");
+    }
+  }
+
+  function partnerName(d: Deposit) {
+    return d.partner?.name ?? partners.find((p) => p.id === d.partnerId)?.name ?? "—";
+  }
+
+  // Same colour per partner as in the summary strip.
+  function partnerHue(id: string) {
+    const i = partners.findIndex((p) => p.id === id);
+    return i >= 0 ? vizHues[i % vizHues.length] : "var(--color-ink-muted)";
   }
 
   if (!selectedMonth)
@@ -69,7 +87,30 @@ export default function Deposits() {
     <div className="space-y-6">
       <PageHeader title="Deposits" subtitle={selectedMonth.label} />
 
+      <DepositSummary deposits={deposits} partners={partners} />
+
       <Card className="p-5">
+        <h3 className="text-sm font-semibold text-ink mb-3">Add a deposit</h3>
+        {partners.length > 0 && (
+          <div className="flex flex-wrap gap-2 mb-3">
+            {partners.map((p) => (
+              <button
+                key={p.id}
+                type="button"
+                onClick={() => setPartnerId(p.id)}
+                className={
+                  "inline-flex items-center px-3 py-1 rounded-full text-xs font-medium border transition-colors " +
+                  (partnerId === p.id
+                    ? "bg-accent-soft text-accent border-accent/40"
+                    : "bg-surface text-ink-secondary border-border hover:bg-page")
+                }
+              >
+                <span className="w-2 h-2 rounded-sm mr-1.5" style={{ background: partnerHue(p.id) }} />
+                {p.name}
+              </button>
+            ))}
+          </div>
+        )}
         <form onSubmit={onAdd} className="flex flex-wrap gap-3 items-end">
           <Field label="Partner">
             <Select value={partnerId} onChange={(e) => setPartnerId(e.target.value)}>
@@ -121,19 +162,29 @@ export default function Deposits() {
             </tr>
           </Thead>
           <tbody>
+            {deposits.length === 0 && (
+              <tr>
+                <Td colSpan={6} className="text-center text-ink-muted py-8">
+                  No deposits added for this month yet.
+                </Td>
+              </tr>
+            )}
             {deposits.map((d) => (
               <tr key={d.id}>
                 <Td className="text-ink-secondary">{new Date(d.date).toLocaleDateString()}</Td>
-                <Td className="font-medium">
-                  {d.partner?.name ?? partners.find((p) => p.id === d.partnerId)?.name}
+                <Td>
+                  <Badge>
+                    <span className="w-2 h-2 rounded-sm mr-1.5" style={{ background: partnerHue(d.partnerId) }} />
+                    {partnerName(d)}
+                  </Badge>
                 </Td>
                 <Td className="text-right tabular">{money(d.amount)}</Td>
-                <Td className="capitalize text-ink-secondary">{d.medium}</Td>
+                <Td className="text-ink-secondary">{d.medium === "bkash" ? "bKash" : d.medium === "cash" ? "Cash" : "Bank"}</Td>
                 <Td className="text-ink-secondary">{d.ref ?? "—"}</Td>
                 <Td className="text-right">
-                  <button className="text-critical hover:underline text-xs" onClick={() => remove(d.id)}>
+                  <Button variant="danger" size="sm" onClick={() => remove(d)}>
                     Delete
-                  </button>
+                  </Button>
                 </Td>
               </tr>
             ))}

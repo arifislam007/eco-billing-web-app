@@ -3,7 +3,12 @@ import { api, ApiError } from "../api/client";
 import type { CostItem } from "../api/types";
 import { useMonth } from "../context/MonthContext";
 import { money } from "../format";
-import { Button, Card, EmptyState, Field, Input, PageHeader, Table, Td, Th, Thead } from "../components/ui";
+import { Badge, Button, Card, EmptyState, Field, Input, PageHeader, Table, Td, Th, Thead } from "../components/ui";
+import { CostSummary } from "../components/CostSummary";
+import { categorizeCost, costCategory } from "../lib/costCategories";
+
+// One-click label presets so new items land in the right summary bucket.
+const LABEL_PRESETS = ["ISP Bill", "Office Management", "Salary", "Personal Cost"];
 
 export default function Costs() {
   const { selectedMonth } = useMonth();
@@ -45,7 +50,9 @@ export default function Costs() {
     }
   }
 
-  async function remove(id: string) {
+  async function remove(item: CostItem) {
+    if (!window.confirm(`Delete "${item.label}" (${money(item.amount)})? This cannot be undone.`)) return;
+    const id = item.id;
     try {
       await api.delete(`/costs/${id}`);
       await refresh();
@@ -75,13 +82,34 @@ export default function Costs() {
         }
       />
 
+      <CostSummary items={items} totalCost={totalCost} />
+
       <Card className="p-5">
+        <h3 className="text-sm font-semibold text-ink mb-3">Add a cost</h3>
+        <div className="flex flex-wrap gap-2 mb-3">
+          {LABEL_PRESETS.map((preset) => (
+            <button
+              key={preset}
+              type="button"
+              onClick={() => setLabel(preset)}
+              className={
+                "px-3 py-1 rounded-full text-xs font-medium border transition-colors " +
+                (label === preset
+                  ? "bg-accent-soft text-accent border-accent/40"
+                  : "bg-surface text-ink-secondary border-border hover:bg-page")
+              }
+            >
+              {preset}
+            </button>
+          ))}
+        </div>
         <form onSubmit={onAdd} className="flex flex-wrap gap-3 items-end">
           <Field label="Label">
             <Input
               value={label}
               onChange={(e) => setLabel(e.target.value)}
               placeholder="e.g. ISP Bill"
+              className="w-56"
               required
             />
           </Field>
@@ -108,28 +136,46 @@ export default function Costs() {
           <Thead>
             <tr>
               <Th>Label</Th>
+              <Th>Category</Th>
               <Th className="text-right">Amount</Th>
               <Th></Th>
             </tr>
           </Thead>
           <tbody>
-            {items.map((c) => (
-              <tr key={c.id}>
-                <Td>
-                  {c.label} {c.isComputedBonus && <span className="text-xs text-ink-muted">(auto)</span>}
-                </Td>
-                <Td className="text-right tabular">{money(c.amount)}</Td>
-                <Td className="text-right">
-                  {!c.isComputedBonus && (
-                    <button className="text-critical hover:underline text-xs" onClick={() => remove(c.id)}>
-                      Delete
-                    </button>
-                  )}
+            {items.length === 0 && (
+              <tr>
+                <Td colSpan={4} className="text-center text-ink-muted py-8">
+                  No costs added for this month yet.
                 </Td>
               </tr>
-            ))}
+            )}
+            {items.map((c) => {
+              const cat = costCategory(categorizeCost(c));
+              return (
+                <tr key={c.id}>
+                  <Td>
+                    {c.label} {c.isComputedBonus && <span className="text-xs text-ink-muted">(auto)</span>}
+                  </Td>
+                  <Td>
+                    <Badge>
+                      <span className="w-2 h-2 rounded-sm mr-1.5" style={{ background: cat.hue }} />
+                      {cat.label}
+                    </Badge>
+                  </Td>
+                  <Td className="text-right tabular">{money(c.amount)}</Td>
+                  <Td className="text-right">
+                    {!c.isComputedBonus && (
+                      <Button variant="danger" size="sm" onClick={() => remove(c)}>
+                        Delete
+                      </Button>
+                    )}
+                  </Td>
+                </tr>
+              );
+            })}
             <tr className="font-semibold bg-page">
               <Td>Total Cost</Td>
+              <Td></Td>
               <Td className="text-right tabular">{money(totalCost)}</Td>
               <Td></Td>
             </tr>

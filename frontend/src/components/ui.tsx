@@ -360,6 +360,88 @@ export function LineChart({
   );
 }
 
+/**
+ * Month-by-month column chart. Works from a single month (unlike LineChart).
+ * One hue; the latest month is solid and earlier months are a lighter step of
+ * the same hue so "now" stands out. Value labels sit on top of each column
+ * (dropped to latest-only when crowded), with native-tooltip hover on every bar.
+ * Shows the change versus the previous month above the plot.
+ */
+export function BarChart({
+  data,
+  formatValue,
+  hue = "var(--color-accent)",
+}: {
+  data: Array<{ label: string; value: number }>;
+  formatValue: (v: number) => string;
+  hue?: string;
+}) {
+  if (!data.length) {
+    return <p className="text-sm text-ink-muted py-10 text-center">No data yet.</p>;
+  }
+
+  const width = 600;
+  const height = 230;
+  const padding = { top: 26, right: 8, bottom: 28, left: 8 };
+  const plotW = width - padding.left - padding.right;
+  const plotH = height - padding.top - padding.bottom;
+  const max = Math.max(...data.map((d) => d.value), 1);
+  const slot = plotW / data.length;
+  const barW = Math.min(slot * 0.62, 56);
+  const baseline = padding.top + plotH;
+  const crowded = data.length > 8;
+
+  const last = data[data.length - 1];
+  const prev = data.length > 1 ? data[data.length - 2] : null;
+  const delta = prev ? last.value - prev.value : null;
+
+  return (
+    <div>
+      <div className="flex items-baseline gap-2 mb-1">
+        <span className="text-xl font-semibold tabular text-ink">{formatValue(last.value)}</span>
+        <span className="text-xs text-ink-muted">{last.label}</span>
+        {delta !== null && (
+          <span
+            className={cx(
+              "ml-auto text-xs font-medium tabular px-1.5 py-0.5 rounded-md",
+              delta > 0 ? "bg-good-soft text-good" : delta < 0 ? "bg-critical-soft text-critical" : "bg-page text-ink-muted"
+            )}
+          >
+            {delta > 0 ? "▲ +" : delta < 0 ? "▼ −" : ""}
+            {formatValue(Math.abs(delta))} vs {prev!.label}
+          </span>
+        )}
+      </div>
+      <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-auto">
+        <line x1={padding.left} y1={baseline} x2={width - padding.right} y2={baseline} stroke="var(--color-border)" strokeWidth={1} />
+        {data.map((d, i) => {
+          const h = Math.max((d.value / max) * plotH, d.value > 0 ? 2 : 0);
+          const x = padding.left + slot * i + (slot - barW) / 2;
+          const y = baseline - h;
+          const isLast = i === data.length - 1;
+          return (
+            <g key={`${d.label}-${i}`}>
+              <rect x={x} y={y} width={barW} height={h} rx={4} fill={hue} fillOpacity={isLast ? 1 : 0.45}>
+                <title>
+                  {d.label}: {formatValue(d.value)}
+                </title>
+              </rect>
+              {(!crowded || isLast) && (
+                <text x={x + barW / 2} y={y - 6} textAnchor="middle" fontSize={12} fontWeight={600} fill="var(--color-ink)">
+                  {formatValue(d.value)}
+                </text>
+              )}
+              <text x={x + barW / 2} y={height - 8} textAnchor="middle" fontSize={10} fill="var(--color-ink-muted)">
+                {d.label}
+              </text>
+            </g>
+          );
+        })}
+      </svg>
+    </div>
+  );
+}
+
 export function EmptyState({ title, hint }: { title: string; hint?: string }) {
   return (
     <Card className="p-10 text-center">
