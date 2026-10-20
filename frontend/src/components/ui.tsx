@@ -1,6 +1,6 @@
-import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode, SelectHTMLAttributes, TableHTMLAttributes, TdHTMLAttributes, ThHTMLAttributes } from "react";
+import { useEffect, useRef, useState, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TableHTMLAttributes, type TdHTMLAttributes, type ThHTMLAttributes } from "react";
 import type { LucideIcon } from "lucide-react";
-import { Inbox, Loader2 } from "lucide-react";
+import { AlertTriangle, ChevronDown, Inbox, Info, Loader2, X } from "lucide-react";
 
 export const vizHues = [
   "var(--color-viz-1)",
@@ -13,9 +13,13 @@ export const vizHues = [
   "var(--color-viz-8)",
 ];
 
-export function cx(...classes: Array<string | false | undefined>) {
+export function cx(...classes: Array<string | false | null | undefined>) {
   return classes.filter(Boolean).join(" ");
 }
+
+/* ------------------------------------------------------------------ */
+/* Surfaces                                                            */
+/* ------------------------------------------------------------------ */
 
 export function Card({
   children,
@@ -29,7 +33,7 @@ export function Card({
   return (
     <div
       className={cx(
-        "bg-surface border border-border rounded-xl shadow-[var(--shadow-sm)] transition-shadow",
+        "bg-surface border border-border rounded-2xl shadow-[var(--shadow-xs)] transition-shadow",
         hover && "hover:shadow-[var(--shadow-md)]",
         className
       )}
@@ -39,25 +43,101 @@ export function Card({
   );
 }
 
+/** Card with a titled header row (title, optional description and actions) and a body. */
+export function Panel({
+  title,
+  description,
+  actions,
+  children,
+  className,
+  bodyClassName,
+  flush,
+}: {
+  title?: ReactNode;
+  description?: ReactNode;
+  actions?: ReactNode;
+  children: ReactNode;
+  className?: string;
+  bodyClassName?: string;
+  /** No body padding - for tables/lists that run edge to edge. */
+  flush?: boolean;
+}) {
+  const hasHeader = Boolean(title || actions);
+  return (
+    <Card className={cx("overflow-hidden", className)}>
+      {hasHeader && (
+        <div className={cx("flex flex-wrap items-center justify-between gap-3 px-5 pt-4", flush ? "pb-4 border-b border-border" : "pb-3")}>
+          <div className="min-w-0">
+            {title && <h3 className="text-[15px] font-semibold text-ink">{title}</h3>}
+            {description && <p className="text-xs text-ink-muted mt-0.5">{description}</p>}
+          </div>
+          {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
+        </div>
+      )}
+      <div className={cx(flush ? "" : hasHeader ? "px-5 pb-5" : "p-5", bodyClassName)}>{children}</div>
+    </Card>
+  );
+}
+
 export function PageHeader({
   title,
   subtitle,
   actions,
+  eyebrow,
 }: {
   title: string;
-  subtitle?: string;
+  subtitle?: ReactNode;
   actions?: ReactNode;
+  eyebrow?: ReactNode;
 }) {
   return (
-    <div className="flex flex-wrap items-start justify-between gap-3 mb-6">
-      <div>
-        <h1 className="text-2xl font-semibold text-ink tracking-tight">{title}</h1>
-        {subtitle && <p className="text-sm text-ink-muted mt-1">{subtitle}</p>}
+    <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-3 mb-6">
+      <div className="min-w-0">
+        {eyebrow && <div className="text-xs font-medium text-accent mb-1">{eyebrow}</div>}
+        <h1 className="text-[22px] sm:text-2xl font-semibold text-ink tracking-tight">{title}</h1>
+        {subtitle && <p className="text-sm text-ink-muted mt-1 max-w-2xl">{subtitle}</p>}
       </div>
-      {actions && <div className="flex items-center gap-2">{actions}</div>}
+      {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
     </div>
   );
 }
+
+export function SectionTitle({ children, actions }: { children: ReactNode; actions?: ReactNode }) {
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
+      <h2 className="text-xs font-semibold text-ink-muted uppercase tracking-wider">{children}</h2>
+      {actions}
+    </div>
+  );
+}
+
+export function Banner({
+  tone = "info",
+  children,
+  className,
+}: {
+  tone?: "info" | "warning" | "critical" | "good";
+  children: ReactNode;
+  className?: string;
+}) {
+  const tones = {
+    info: "bg-accent-soft text-accent",
+    warning: "bg-warning-soft text-warning",
+    critical: "bg-critical-soft text-critical",
+    good: "bg-good-soft text-good",
+  };
+  const Icon = tone === "info" || tone === "good" ? Info : AlertTriangle;
+  return (
+    <div className={cx("flex items-start gap-2.5 rounded-xl px-3.5 py-2.5 text-sm", tones[tone], className)} role={tone === "critical" ? "alert" : "status"}>
+      <Icon size={16} className="mt-0.5 shrink-0" />
+      <div className="min-w-0 flex-1">{children}</div>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Controls                                                            */
+/* ------------------------------------------------------------------ */
 
 export function Button({
   className,
@@ -67,24 +147,26 @@ export function Button({
   children,
   ...props
 }: ButtonHTMLAttributes<HTMLButtonElement> & {
-  variant?: "primary" | "secondary" | "ghost" | "danger";
-  size?: "sm" | "md";
+  variant?: "primary" | "secondary" | "ghost" | "danger" | "danger-solid";
+  size?: "sm" | "md" | "lg";
   loading?: boolean;
 }) {
   const variants = {
-    primary: "bg-accent text-white shadow-[var(--shadow-xs)] hover:bg-accent-dark hover:shadow-[var(--shadow-sm)] disabled:opacity-50 disabled:shadow-none",
-    secondary: "bg-surface border border-border text-ink hover:bg-page hover:border-ink-muted/40 disabled:opacity-50",
-    ghost: "text-ink-secondary hover:bg-page disabled:opacity-50",
+    primary: "bg-accent text-white shadow-[var(--shadow-xs)] hover:bg-accent-dark disabled:opacity-50",
+    secondary: "bg-surface border border-border text-ink hover:bg-page hover:border-border-strong disabled:opacity-50",
+    ghost: "text-ink-secondary hover:bg-page hover:text-ink disabled:opacity-50",
     danger: "text-critical hover:bg-critical-soft disabled:opacity-50",
+    "danger-solid": "bg-critical text-white hover:opacity-90 disabled:opacity-50",
   };
   const sizes = {
-    sm: "px-2.5 py-1 text-xs",
-    md: "px-4 py-2 text-sm",
+    sm: "h-8 px-2.5 text-xs gap-1.5",
+    md: "h-10 px-4 text-sm gap-2",
+    lg: "h-11 px-5 text-sm gap-2",
   };
   return (
     <button
       className={cx(
-        "inline-flex items-center justify-center gap-1.5 rounded-lg font-medium transition-all active:scale-[0.98]",
+        "inline-flex items-center justify-center rounded-xl font-medium whitespace-nowrap transition-all active:scale-[0.98] disabled:active:scale-100 disabled:cursor-not-allowed",
         variants[variant],
         sizes[size],
         className
@@ -98,39 +180,134 @@ export function Button({
   );
 }
 
-export function Input({ className, ...props }: InputHTMLAttributes<HTMLInputElement>) {
+export function IconButton({
+  label,
+  className,
+  children,
+  ...props
+}: ButtonHTMLAttributes<HTMLButtonElement> & { label: string }) {
   return (
-    <input
+    <button
+      type="button"
+      aria-label={label}
+      title={label}
       className={cx(
-        "border border-border bg-surface rounded-lg px-3 py-1.5 text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:ring-2 focus:ring-accent/40 focus:border-accent",
+        "inline-flex items-center justify-center w-9 h-9 rounded-xl text-ink-secondary hover:bg-page hover:text-ink transition-colors disabled:opacity-40",
         className
       )}
       {...props}
-    />
+    >
+      {children}
+    </button>
   );
+}
+
+const fieldBase =
+  "h-10 w-full border border-border bg-surface rounded-xl px-3 text-sm text-ink placeholder:text-ink-muted transition-colors hover:border-border-strong focus:outline-none focus:ring-4 focus:ring-accent/15 focus:border-accent disabled:opacity-60";
+
+export function Input({ className, ...props }: InputHTMLAttributes<HTMLInputElement>) {
+  return <input className={cx(fieldBase, className)} {...props} />;
 }
 
 export function Select({ className, ...props }: SelectHTMLAttributes<HTMLSelectElement>) {
+  return <select className={cx(fieldBase, "pr-8 cursor-pointer", className)} {...props} />;
+}
+
+export function Label({ children, htmlFor }: { children: ReactNode; htmlFor?: string }) {
   return (
-    <select
-      className={cx(
-        "border border-border bg-surface rounded-lg px-3 py-1.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-accent/40 focus:border-accent",
-        className
-      )}
-      {...props}
-    />
+    <label htmlFor={htmlFor} className="block text-xs font-medium text-ink-secondary mb-1.5">
+      {children}
+    </label>
   );
 }
 
-export function Label({ children }: { children: ReactNode }) {
-  return <label className="block text-xs font-medium text-ink-secondary mb-1">{children}</label>;
-}
-
-export function Field({ label, children }: { label: string; children: ReactNode }) {
+export function Field({
+  label,
+  hint,
+  children,
+  className,
+}: {
+  label: string;
+  hint?: ReactNode;
+  children: ReactNode;
+  className?: string;
+}) {
   return (
-    <div>
+    <div className={cx("min-w-0", className)}>
       <Label>{label}</Label>
       {children}
+      {hint && <p className="text-[11px] text-ink-muted mt-1">{hint}</p>}
+    </div>
+  );
+}
+
+/** Form grid: fields stack on phones, flow into columns on wider screens. */
+export function FormGrid({ children, cols = 4, className }: { children: ReactNode; cols?: 2 | 3 | 4 | 5; className?: string }) {
+  const map = {
+    2: "sm:grid-cols-2",
+    3: "sm:grid-cols-2 lg:grid-cols-3",
+    4: "sm:grid-cols-2 lg:grid-cols-4",
+    5: "sm:grid-cols-2 lg:grid-cols-5",
+  };
+  return <div className={cx("grid grid-cols-1 gap-3 items-end", map[cols], className)}>{children}</div>;
+}
+
+/** Pill chips for quick picks (presets, partners). */
+export function Chip({
+  active,
+  onClick,
+  children,
+  dot,
+}: {
+  active?: boolean;
+  onClick?: () => void;
+  children: ReactNode;
+  dot?: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={cx(
+        "inline-flex items-center h-8 px-3 rounded-full text-xs font-medium border transition-colors",
+        active ? "bg-accent-soft text-accent border-accent/40" : "bg-surface text-ink-secondary border-border hover:bg-page hover:text-ink"
+      )}
+    >
+      {dot && <span className="w-2 h-2 rounded-sm mr-1.5 shrink-0" style={{ background: dot }} />}
+      {children}
+    </button>
+  );
+}
+
+export function SegmentedControl<T extends string>({
+  value,
+  onChange,
+  options,
+  className,
+}: {
+  value: T;
+  onChange: (v: T) => void;
+  options: Array<{ value: T; label: ReactNode }>;
+  className?: string;
+}) {
+  return (
+    <div role="tablist" className={cx("inline-flex items-center gap-0.5 bg-page border border-border rounded-xl p-0.5", className)}>
+      {options.map((o) => (
+        <button
+          key={o.value}
+          type="button"
+          role="tab"
+          aria-selected={value === o.value}
+          onClick={() => onChange(o.value)}
+          className={cx(
+            "h-8 px-3 rounded-[10px] text-sm font-medium transition-colors",
+            value === o.value ? "bg-surface text-ink shadow-[var(--shadow-xs)]" : "text-ink-muted hover:text-ink"
+          )}
+        >
+          {o.label}
+        </button>
+      ))}
     </div>
   );
 }
@@ -154,29 +331,98 @@ export function Switch({
         aria-checked={checked}
         disabled={disabled}
         onClick={() => onChange(!checked)}
-        className={cx(
-          "relative w-9 h-5 rounded-full transition-colors shrink-0",
-          checked ? "bg-accent" : "bg-border"
-        )}
+        className={cx("relative w-9 h-5 rounded-full transition-colors shrink-0", checked ? "bg-accent" : "bg-border-strong")}
       >
-        <span
-          className={cx(
-            "absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform",
-            checked && "translate-x-4"
-          )}
-        />
+        <span className={cx("absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform", checked && "translate-x-4")} />
       </button>
       {label && <span className="text-sm text-ink-secondary">{label}</span>}
     </label>
   );
 }
 
+/** Small dropdown menu (e.g. "Export"). Closes on outside click or Escape. */
+export function Menu({
+  label,
+  icon: Icon,
+  items,
+  align = "right",
+  variant = "secondary",
+}: {
+  label: string;
+  icon?: LucideIcon;
+  items: Array<{ label: string; icon?: LucideIcon; onClick: () => void; disabled?: boolean }>;
+  align?: "left" | "right";
+  variant?: "primary" | "secondary";
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const onDoc = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("mousedown", onDoc);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDoc);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+  return (
+    <div className="relative" ref={ref}>
+      <Button variant={variant} onClick={() => setOpen((v) => !v)} aria-haspopup="menu" aria-expanded={open}>
+        {Icon && <Icon size={15} />}
+        {label}
+        <ChevronDown size={14} className={cx("transition-transform", open && "rotate-180")} />
+      </Button>
+      {open && (
+        <div
+          role="menu"
+          className={cx(
+            "animate-fade-in absolute z-30 mt-1.5 min-w-48 bg-surface border border-border rounded-xl shadow-[var(--shadow-lg)] p-1",
+            align === "right" ? "right-0" : "left-0"
+          )}
+        >
+          {items.map((item) => {
+            const ItemIcon = item.icon;
+            return (
+              <button
+                key={item.label}
+                type="button"
+                role="menuitem"
+                disabled={item.disabled}
+                onClick={() => {
+                  setOpen(false);
+                  item.onClick();
+                }}
+                className="w-full flex items-center gap-2.5 px-3 h-9 rounded-lg text-sm text-ink hover:bg-page text-left disabled:opacity-50"
+              >
+                {ItemIcon && <ItemIcon size={15} className="text-ink-muted" />}
+                {item.label}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Display                                                             */
+/* ------------------------------------------------------------------ */
+
 export function Badge({
   children,
   tone = "neutral",
+  dot,
 }: {
   children: ReactNode;
   tone?: "neutral" | "good" | "warning" | "critical" | "accent";
+  dot?: string;
 }) {
   const tones = {
     neutral: "bg-page text-ink-secondary border-border",
@@ -186,7 +432,8 @@ export function Badge({
     accent: "bg-accent-soft text-accent border-transparent",
   };
   return (
-    <span className={cx("inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border", tones[tone])}>
+    <span className={cx("inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border whitespace-nowrap", tones[tone])}>
+      {dot && <span className="w-2 h-2 rounded-sm mr-1.5 shrink-0" style={{ background: dot }} />}
       {children}
     </span>
   );
@@ -202,26 +449,27 @@ export function StatTile({
 }: {
   label: string;
   value: string;
-  sub?: string;
+  sub?: ReactNode;
   tone?: "neutral" | "good" | "critical";
   icon?: LucideIcon;
   hue?: string;
 }) {
   const valueTone = tone === "good" ? "text-good" : tone === "critical" ? "text-critical" : "text-ink";
+  const chip = hue ?? "var(--color-accent)";
   return (
     <Card hover className="p-4">
-      <div className="flex items-center gap-2.5 mb-2">
+      <div className="flex items-start justify-between gap-2 mb-3">
+        <div className="text-xs font-medium text-ink-muted leading-snug">{label}</div>
         {Icon && (
           <span
             className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
-            style={{ background: `color-mix(in srgb, ${hue} 16%, transparent)`, color: hue }}
+            style={{ background: `color-mix(in srgb, ${chip} 14%, transparent)`, color: chip }}
           >
             <Icon size={16} />
           </span>
         )}
-        <div className="text-xs font-medium text-ink-muted uppercase tracking-wide">{label}</div>
       </div>
-      <div className={cx("text-2xl font-semibold tabular", valueTone)}>{value}</div>
+      <div className={cx("text-xl sm:text-2xl font-semibold tabular tracking-tight", valueTone)}>{value}</div>
       {sub && <div className="text-xs text-ink-muted mt-1">{sub}</div>}
     </Card>
   );
@@ -442,59 +690,276 @@ export function BarChart({
   );
 }
 
-export function EmptyState({ title, hint }: { title: string; hint?: string }) {
-  return (
-    <Card className="p-10 text-center">
-      <div className="w-11 h-11 rounded-full bg-page flex items-center justify-center mx-auto mb-3 text-ink-muted">
-        <Inbox size={20} />
+export function EmptyState({
+  title,
+  hint,
+  icon: Icon = Inbox,
+  action,
+  bare,
+}: {
+  title: string;
+  hint?: string;
+  icon?: LucideIcon;
+  action?: ReactNode;
+  bare?: boolean;
+}) {
+  const body = (
+    <div className="text-center px-6 py-10">
+      <div className="w-12 h-12 rounded-2xl bg-accent-soft flex items-center justify-center mx-auto mb-3 text-accent">
+        <Icon size={22} />
       </div>
-      <p className="text-sm font-medium text-ink-secondary">{title}</p>
-      {hint && <p className="text-xs text-ink-muted mt-1">{hint}</p>}
-    </Card>
+      <p className="text-sm font-semibold text-ink">{title}</p>
+      {hint && <p className="text-sm text-ink-muted mt-1 max-w-sm mx-auto">{hint}</p>}
+      {action && <div className="mt-4 flex justify-center">{action}</div>}
+    </div>
   );
+  return bare ? body : <Card>{body}</Card>;
 }
 
 export function Modal({
   title,
+  description,
   onClose,
   children,
+  size = "sm",
 }: {
   title: string;
+  description?: ReactNode;
   onClose: () => void;
   children: ReactNode;
+  size?: "sm" | "md";
 }) {
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onCloseRef.current();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, []);
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/50 backdrop-blur-[2px]" onClick={onClose} />
-      <Card className="relative w-full max-w-sm p-6 shadow-[var(--shadow-lg)]">
-        <h2 className="text-lg font-semibold text-ink mb-4">{title}</h2>
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4" role="dialog" aria-modal="true" aria-label={title}>
+      <div className="absolute inset-0 bg-black/45 backdrop-blur-[2px]" onClick={onClose} />
+      <div
+        className={cx(
+          "animate-fade-in relative w-full bg-surface border border-border shadow-[var(--shadow-lg)] p-6 rounded-t-2xl sm:rounded-2xl pb-[max(1.5rem,env(safe-area-inset-bottom))]",
+          size === "sm" ? "sm:max-w-sm" : "sm:max-w-lg"
+        )}
+      >
+        <div className="flex items-start justify-between gap-3 mb-4">
+          <div>
+            <h2 className="text-lg font-semibold text-ink">{title}</h2>
+            {description && <div className="text-sm text-ink-muted mt-1">{description}</div>}
+          </div>
+          <IconButton label="Close" onClick={onClose} className="-mr-2 -mt-1">
+            <X size={18} />
+          </IconButton>
+        </div>
         {children}
-      </Card>
+      </div>
     </div>
   );
 }
 
-export function LoadingState() {
+/**
+ * Promise-based confirm dialog. Usage:
+ *   const [confirmUi, confirm] = useConfirm();
+ *   if (await confirm({ title: "Delete?" })) { ... }
+ *   return <>{confirmUi} ...</>
+ */
+export function useConfirm() {
+  const [state, setState] = useState<{
+    title: string;
+    message?: ReactNode;
+    confirmLabel?: string;
+    tone?: "danger" | "primary";
+    resolve: (ok: boolean) => void;
+  } | null>(null);
+
+  function confirm(opts: { title: string; message?: ReactNode; confirmLabel?: string; tone?: "danger" | "primary" }) {
+    return new Promise<boolean>((resolve) => setState({ ...opts, resolve }));
+  }
+
+  function close(ok: boolean) {
+    state?.resolve(ok);
+    setState(null);
+  }
+
+  const ui = state ? (
+    <Modal title={state.title} description={state.message} onClose={() => close(false)}>
+      <div className="flex flex-col-reverse sm:flex-row gap-2 sm:justify-end">
+        <Button variant="secondary" onClick={() => close(false)}>
+          Cancel
+        </Button>
+        <Button variant={state.tone === "primary" ? "primary" : "danger-solid"} onClick={() => close(true)} autoFocus>
+          {state.confirmLabel ?? "Delete"}
+        </Button>
+      </div>
+    </Modal>
+  ) : null;
+
+  return [ui, confirm] as const;
+}
+
+export function LoadingState({ label = "Loading..." }: { label?: string }) {
   return (
-    <div className="flex items-center gap-2 text-sm text-ink-muted py-10 justify-center">
+    <div className="flex items-center gap-2 text-sm text-ink-muted py-16 justify-center">
       <Loader2 className="animate-spin" size={16} />
-      Loading...
+      {label}
     </div>
   );
 }
+
+/* ------------------------------------------------------------------ */
+/* Tables                                                              */
+/* ------------------------------------------------------------------ */
 
 export function Table({ className, ...props }: TableHTMLAttributes<HTMLTableElement>) {
-  return <table className={cx("w-full text-sm [&_tbody_tr]:transition-colors [&_tbody_tr:hover]:bg-page/70", className)} {...props} />;
+  return (
+    <div className="overflow-x-auto">
+      <table className={cx("w-full text-sm [&_tbody_tr]:transition-colors [&_tbody_tr:hover]:bg-surface-2", className)} {...props} />
+    </div>
+  );
 }
 
 export function Thead({ children }: { children: ReactNode }) {
-  return <thead className="bg-page text-ink-muted text-xs uppercase tracking-wide">{children}</thead>;
+  return <thead className="bg-surface-2 text-ink-muted text-[11px] uppercase tracking-wider">{children}</thead>;
 }
 
 export function Th({ className, ...props }: ThHTMLAttributes<HTMLTableCellElement>) {
-  return <th className={cx("text-left px-4 py-2.5 font-medium", className)} {...props} />;
+  return <th className={cx("text-left px-4 py-3 font-semibold whitespace-nowrap border-b border-border", className)} {...props} />;
 }
 
 export function Td({ className, ...props }: TdHTMLAttributes<HTMLTableCellElement>) {
-  return <td className={cx("px-4 py-2.5 border-t border-border", className)} {...props} />;
+  return <td className={cx("px-4 py-3 border-t border-border", className)} {...props} />;
+}
+
+export interface Column<T> {
+  key: string;
+  header: ReactNode;
+  cell: (row: T) => ReactNode;
+  align?: "left" | "right";
+  /** Hide this column in the phone card view. */
+  hideOnMobile?: boolean;
+  /** Use as the card's title on phones (first such column). */
+  primary?: boolean;
+  className?: string;
+}
+
+/**
+ * Responsive data list: a table on tablets/desktop, stacked cards on phones.
+ * `footer` renders as a totals row (table) / totals card (phone).
+ */
+export function DataTable<T>({
+  rows,
+  columns,
+  rowKey,
+  actions,
+  empty,
+  footer,
+  rowClassName,
+}: {
+  rows: T[];
+  columns: Column<T>[];
+  rowKey: (row: T) => string;
+  actions?: (row: T) => ReactNode;
+  empty?: ReactNode;
+  footer?: Array<{ key: string; value: ReactNode }>;
+  rowClassName?: (row: T) => string | undefined;
+}) {
+  const primary = columns.find((c) => c.primary) ?? columns[0];
+  const rest = columns.filter((c) => c !== primary && !c.hideOnMobile);
+  const footerFor = (key: string) => footer?.find((f) => f.key === key)?.value;
+  const hasFooterValue = (key: string) => {
+    const v = footerFor(key);
+    return v !== undefined && v !== null && v !== "";
+  };
+
+  return (
+    <>
+      {/* Tablet / desktop */}
+      <div className="hidden md:block overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead className="bg-surface-2 text-ink-muted text-[11px] uppercase tracking-wider">
+            <tr>
+              {columns.map((c) => (
+                <th key={c.key} className={cx("px-4 py-3 font-semibold whitespace-nowrap border-b border-border", c.align === "right" ? "text-right" : "text-left")}>
+                  {c.header}
+                </th>
+              ))}
+              {actions && <th className="px-4 py-3 border-b border-border" aria-label="Actions" />}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row, i) => (
+              <tr key={rowKey(row)} className={cx("transition-colors hover:bg-surface-2", rowClassName?.(row))}>
+                {columns.map((c) => (
+                  <td key={c.key} className={cx("px-4 py-3", i > 0 && "border-t border-border", c.align === "right" && "text-right tabular", c.className)}>
+                    {c.cell(row)}
+                  </td>
+                ))}
+                {actions && <td className={cx("px-4 py-2 text-right whitespace-nowrap", i > 0 && "border-t border-border")}>{actions(row)}</td>}
+              </tr>
+            ))}
+            {!rows.length && (
+              <tr>
+                <td colSpan={columns.length + (actions ? 1 : 0)} className="px-4 py-10 text-center text-sm text-ink-muted">
+                  {empty ?? "Nothing here yet."}
+                </td>
+              </tr>
+            )}
+          </tbody>
+          {footer && rows.length > 0 && (
+            <tfoot>
+              <tr className="bg-surface-2 font-semibold border-t border-border">
+                {columns.map((c) => (
+                  <td key={c.key} className={cx("px-4 py-3", c.align === "right" && "text-right tabular")}>
+                    {footerFor(c.key)}
+                  </td>
+                ))}
+                {actions && <td />}
+              </tr>
+            </tfoot>
+          )}
+        </table>
+      </div>
+
+      {/* Phone */}
+      <ul className="md:hidden divide-y divide-border">
+        {rows.map((row) => (
+          <li key={rowKey(row)} className={cx("px-4 py-3", rowClassName?.(row))}>
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0 font-medium text-ink">{primary.cell(row)}</div>
+              {actions && <div className="shrink-0 -mr-2 -mt-1 flex items-center">{actions(row)}</div>}
+            </div>
+            {rest.length > 0 && (
+              <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1.5 text-sm">
+                {rest.map((c) => (
+                  <div key={c.key} className="min-w-0">
+                    <dt className="text-[11px] uppercase tracking-wide text-ink-muted">{c.header}</dt>
+                    <dd className={cx("text-ink truncate", c.align === "right" && "tabular")}>{c.cell(row)}</dd>
+                  </div>
+                ))}
+              </dl>
+            )}
+          </li>
+        ))}
+        {!rows.length && <li className="px-4 py-10 text-center text-sm text-ink-muted">{empty ?? "Nothing here yet."}</li>}
+        {footer && rows.length > 0 && (
+          <li className="px-4 py-3 bg-surface-2">
+            <div className="font-semibold text-ink mb-1.5">{footerFor(primary.key) ?? "Total"}</div>
+            <dl className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-sm">
+              {rest.filter((c) => hasFooterValue(c.key)).map((c) => (
+                <div key={c.key}>
+                  <dt className="text-[11px] uppercase tracking-wide text-ink-muted">{c.header}</dt>
+                  <dd className="font-semibold tabular text-ink">{footerFor(c.key)}</dd>
+                </div>
+              ))}
+            </dl>
+          </li>
+        )}
+      </ul>
+    </>
+  );
 }

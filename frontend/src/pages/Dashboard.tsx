@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import {
   Users,
   Wallet,
@@ -8,14 +9,33 @@ import {
   ReceiptText,
   CircleDollarSign,
   TrendingUp,
+  ArrowUpRight,
+  Plus,
 } from "lucide-react";
 import { api } from "../api/client";
-import type { DashboardData, DashboardTrends, PartnerMonthEntry } from "../api/types";
+import type { CostItem, DashboardData, DashboardTrends, PartnerMonthEntry } from "../api/types";
 import { useMonth } from "../context/MonthContext";
 import { money, pct } from "../format";
 import { CostSummary } from "../components/CostSummary";
 import { categorizeCost, costCategory } from "../lib/costCategories";
-import { BarChart, BarList, Card, cx, EmptyState, LineChart, LoadingState, PageHeader, Select, StatTile, Table, Td, Th, Thead, vizHues } from "../components/ui";
+import {
+  Badge,
+  BarChart,
+  BarList,
+  Button,
+  Card,
+  cx,
+  DataTable,
+  EmptyState,
+  LineChart,
+  LoadingState,
+  PageHeader,
+  Panel,
+  SectionTitle,
+  Select,
+  StatTile,
+  vizHues,
+} from "../components/ui";
 
 export default function Dashboard() {
   const { selectedMonth } = useMonth();
@@ -48,12 +68,24 @@ export default function Dashboard() {
   }, []);
 
   if (!selectedMonth)
-    return <EmptyState title="No month selected" hint="Create a month to get started." />;
+    return (
+      <EmptyState
+        title="No month yet"
+        hint="Create your first accounting month to start recording collections."
+        action={
+          <Link to="/months">
+            <Button>
+              <Plus size={15} /> Create a month
+            </Button>
+          </Link>
+        }
+      />
+    );
   if (loading || !data) return <LoadingState />;
 
   const { totals, costs, profit, ledgerBalance } = data;
-  const profitTone = Number(profit) < 0 ? "critical" : "good";
-  const ledgerTone = Number(ledgerBalance) < 0 ? "critical" : "neutral";
+  const profitNegative = Number(profit) < 0;
+  const ledgerNegative = Number(ledgerBalance) < 0;
 
   const usersByPartner = [...entries]
     .map((e) => ({ label: e.partner?.name ?? "—", value: e.totalUsers }))
@@ -67,94 +99,62 @@ export default function Dashboard() {
   const costGrowth = trends.overall.map((t) => ({ label: t.label, value: Number(t.totalCost) || 0 }));
 
   const selectedPartnerTrend = trends.byPartner.find((p) => p.partnerId === selectedPartnerId);
-  const partnerUserGrowth =
-    selectedPartnerTrend?.series.map((s) => ({ label: s.label, value: s.totalUsers })) ?? [];
+  const partnerUserGrowth = selectedPartnerTrend?.series.map((s) => ({ label: s.label, value: s.totalUsers })) ?? [];
   const partnerRevenueGrowth =
     selectedPartnerTrend?.series.map((s) => ({ label: s.label, value: Number(s.totalCollection) || 0 })) ?? [];
 
   return (
     <div className="space-y-8">
-      <PageHeader title={`${selectedMonth.label} Dashboard`} subtitle="Monthly summary and roll-ups" />
+      <PageHeader
+        eyebrow={selectedMonth.label}
+        title="Dashboard"
+        subtitle="How this month is going across all partners."
+        actions={
+          <>
+            <Link to="/reports">
+              <Button variant="secondary">Monthly report</Button>
+            </Link>
+            <Link to="/entries">
+              <Button>
+                <Plus size={15} /> Add entry
+              </Button>
+            </Link>
+          </>
+        }
+      />
 
-      <section className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <Card className="p-5 relative overflow-hidden">
-          <div
-            className="absolute inset-y-0 left-0 w-1"
-            style={{ background: profitTone === "good" ? "var(--color-good)" : "var(--color-critical)" }}
-          />
-          <p className="text-xs font-medium text-ink-muted uppercase tracking-wide mb-1.5">
-            Profit — Business Amount minus Total Cost
-          </p>
-          <p className={cx("text-3xl font-bold tabular", profitTone === "good" ? "text-good" : "text-critical")}>
-            {money(profit)}
-          </p>
-        </Card>
-        <Card className="p-5 relative overflow-hidden">
-          <div
-            className="absolute inset-y-0 left-0 w-1"
-            style={{ background: ledgerTone === "critical" ? "var(--color-critical)" : "var(--color-accent)" }}
-          />
-          <p className="text-xs font-medium text-ink-muted uppercase tracking-wide mb-1.5">
-            Ledger Balance — bKash receive minus send
-          </p>
-          <p className={cx("text-3xl font-bold tabular", ledgerTone === "critical" ? "text-critical" : "text-ink")}>
-            {money(ledgerBalance)}
-          </p>
-        </Card>
+      {/* Headline numbers */}
+      <section className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+        <HeroStat
+          label="Profit"
+          hint="Business amount minus total cost"
+          value={money(profit)}
+          tone={profitNegative ? "critical" : "good"}
+        />
+        <HeroStat label="Total collection" hint={`${totals.totalUsers.toLocaleString()} users`} value={money(totals.totalCollection)} />
+        <HeroStat label="Due after bonus" hint="Still to collect from partners" value={money(totals.totalDueAfterBonus)} />
+        <HeroStat
+          label="bKash ledger balance"
+          hint="Received minus sent"
+          value={money(ledgerBalance)}
+          tone={ledgerNegative ? "critical" : undefined}
+          to="/transactions"
+        />
       </section>
 
       <section>
-        <h2 className="text-xs font-semibold text-ink-muted uppercase tracking-wide mb-3">
-          Totals across partners
-        </h2>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <SectionTitle>Totals across partners</SectionTitle>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+          <StatTile label="Total users" value={totals.totalUsers.toLocaleString()} icon={Users} hue={vizHues[0]} />
+          <StatTile label="Total collection" value={money(totals.totalCollection)} icon={Wallet} hue={vizHues[1]} />
+          <StatTile label="Total commission" value={money(totals.totalCommission)} icon={Percent} hue={vizHues[2]} />
+          <StatTile label="Business amount" value={money(totals.totalBusinessAmount)} icon={Landmark} hue={vizHues[3]} />
+          <StatTile label="Total deposits" value={money(totals.totalDeposits)} icon={PiggyBank} hue={vizHues[4]} />
+          <StatTile label="Due (with bonus)" value={money(totals.totalDueWithBonus)} icon={ReceiptText} hue={vizHues[5]} />
+          <StatTile label="Due (after bonus)" value={money(totals.totalDueAfterBonus)} icon={CircleDollarSign} hue={vizHues[6]} />
           <StatTile
-            label="Total Users"
-            value={totals.totalUsers.toLocaleString()}
-            icon={Users}
-            hue={vizHues[0]}
-          />
-          <StatTile
-            label="Total Collection"
-            value={money(totals.totalCollection)}
-            icon={Wallet}
-            hue={vizHues[1]}
-          />
-          <StatTile
-            label="Total Commission"
-            value={money(totals.totalCommission)}
-            icon={Percent}
-            hue={vizHues[2]}
-          />
-          <StatTile
-            label="Total Business Amount"
-            value={money(totals.totalBusinessAmount)}
-            icon={Landmark}
-            hue={vizHues[3]}
-          />
-          <StatTile
-            label="Total Deposits"
-            value={money(totals.totalDeposits)}
-            icon={PiggyBank}
-            hue={vizHues[4]}
-          />
-          <StatTile
-            label="Total Due (with bonus)"
-            value={money(totals.totalDueWithBonus)}
-            icon={ReceiptText}
-            hue={vizHues[5]}
-          />
-          <StatTile
-            label="Total Due (after bonus)"
-            value={money(totals.totalDueAfterBonus)}
-            icon={CircleDollarSign}
-            hue={vizHues[6]}
-          />
-          <StatTile
-            label="Avg Commission % / Bonus %"
-            value={`${pct(Number(totals.avgCommissionPct) / 100)} / ${pct(
-              Number(totals.avgBonusPct) / 100
-            )}`}
+            label="Avg commission / bonus"
+            value={`${pct(Number(totals.avgCommissionPct) / 100)} / ${pct(Number(totals.avgBonusPct) / 100)}`}
             icon={TrendingUp}
             hue={vizHues[7]}
           />
@@ -162,110 +162,153 @@ export default function Dashboard() {
       </section>
 
       <section>
-        <h2 className="text-xs font-semibold text-ink-muted uppercase tracking-wide mb-3">
-          Partner analysis
-        </h2>
+        <SectionTitle>User performance</SectionTitle>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <Card className="p-5">
-            <h3 className="text-sm font-semibold text-ink mb-4">Users by partner</h3>
-            <BarList
-              data={usersByPartner}
-              formatValue={(v) => v.toLocaleString()}
-              hue={vizHues[0]}
-            />
-          </Card>
-          <Card className="p-5">
-            <h3 className="text-sm font-semibold text-ink mb-4">Revenue by partner</h3>
-            <BarList data={revenueByPartner} formatValue={(v) => money(v)} hue={vizHues[1]} />
-          </Card>
-        </div>
-      </section>
-
-      <section>
-        <h2 className="text-xs font-semibold text-ink-muted uppercase tracking-wide mb-3">
-          Growth over time
-        </h2>
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          <Card className="p-5">
-            <h3 className="text-sm font-semibold text-ink mb-2">Total user growth</h3>
+          <Panel title="Total users by month">
             <BarChart data={userGrowth} formatValue={(v) => v.toLocaleString()} hue={vizHues[0]} />
-          </Card>
-          <Card className="p-5">
-            <h3 className="text-sm font-semibold text-ink mb-2">Total revenue growth</h3>
-            <LineChart data={revenueGrowth} formatValue={(v) => money(v)} hue={vizHues[1]} />
-          </Card>
-          <Card className="p-5">
-            <h3 className="text-sm font-semibold text-ink mb-2">Total cost growth</h3>
-            <LineChart data={costGrowth} formatValue={(v) => money(v)} hue={vizHues[6]} />
-          </Card>
+          </Panel>
+          <Panel title="Users by partner" description={selectedMonth.label}>
+            <BarList data={usersByPartner} formatValue={(v) => v.toLocaleString()} hue={vizHues[0]} />
+          </Panel>
         </div>
       </section>
 
       <section>
-        <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
-          <h2 className="text-xs font-semibold text-ink-muted uppercase tracking-wide">
-            Partner growth over time
-          </h2>
-          {trends.byPartner.length > 0 && (
-            <Select value={selectedPartnerId} onChange={(e) => setSelectedPartnerId(e.target.value)}>
-              {trends.byPartner.map((p) => (
-                <option key={p.partnerId} value={p.partnerId}>
-                  {p.partnerName}
-                </option>
-              ))}
-            </Select>
-          )}
+        <SectionTitle>Revenue & cost</SectionTitle>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <Panel title="Revenue by partner" description={selectedMonth.label}>
+            <BarList data={revenueByPartner} formatValue={(v) => money(v)} hue={vizHues[1]} />
+          </Panel>
+          <Panel title="Revenue growth">
+            <LineChart data={revenueGrowth} formatValue={(v) => money(v)} hue={vizHues[1]} />
+          </Panel>
+          <Panel title="Cost growth">
+            <LineChart data={costGrowth} formatValue={(v) => money(v)} hue={vizHues[6]} />
+          </Panel>
         </div>
+      </section>
+
+      <section>
+        <SectionTitle
+          actions={
+            trends.byPartner.length > 0 && (
+              <div className="w-48">
+              <Select aria-label="Partner" value={selectedPartnerId} onChange={(e) => setSelectedPartnerId(e.target.value)}>
+                {trends.byPartner.map((p) => (
+                  <option key={p.partnerId} value={p.partnerId}>
+                    {p.partnerName}
+                  </option>
+                ))}
+              </Select>
+              </div>
+            )
+          }
+        >
+          Partner growth
+        </SectionTitle>
         {trends.byPartner.length === 0 ? (
           <EmptyState title="No partners yet" hint="Add a partner to see their growth over time." />
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <Card className="p-5">
-              <h3 className="text-sm font-semibold text-ink mb-2">User growth</h3>
+            <Panel title="Users by month">
               <BarChart data={partnerUserGrowth} formatValue={(v) => v.toLocaleString()} hue={vizHues[0]} />
-            </Card>
-            <Card className="p-5">
-              <h3 className="text-sm font-semibold text-ink mb-2">Revenue growth</h3>
+            </Panel>
+            <Panel title="Revenue growth">
               <LineChart data={partnerRevenueGrowth} formatValue={(v) => money(v)} hue={vizHues[1]} />
-            </Card>
+            </Panel>
           </div>
         )}
       </section>
 
-      <section>
-        <h2 className="text-xs font-semibold text-ink-muted uppercase tracking-wide mb-3">Cost block</h2>
-        <div className="space-y-4">
-          <CostSummary items={costs.items} totalCost={costs.totalCost} />
-          <Card className="overflow-hidden">
-            <Table>
-              <Thead>
-                <tr>
-                  <Th>Label</Th>
-                  <Th>Category</Th>
-                  <Th className="text-right">Amount</Th>
-                </tr>
-              </Thead>
-              <tbody>
-                {costs.items.map((c) => (
-                  <tr key={c.id}>
-                    <Td>
-                      {c.label}{" "}
-                      {c.isComputedBonus && <span className="text-xs text-ink-muted">(auto)</span>}
-                    </Td>
-                    <Td className="text-ink-secondary">{costCategory(categorizeCost(c)).label}</Td>
-                    <Td className="text-right tabular">{money(c.amount)}</Td>
-                  </tr>
-                ))}
-                <tr className="font-semibold bg-page">
-                  <Td>Total Cost</Td>
-                  <Td></Td>
-                  <Td className="text-right tabular">{money(costs.totalCost)}</Td>
-                </tr>
-              </tbody>
-            </Table>
-          </Card>
-        </div>
+      <section className="space-y-4">
+        <SectionTitle
+          actions={
+            <Link to="/costs" className="text-sm font-medium text-accent hover:underline inline-flex items-center gap-1">
+              Manage costs <ArrowUpRight size={14} />
+            </Link>
+          }
+        >
+          Costs
+        </SectionTitle>
+        <CostSummary items={costs.items} totalCost={costs.totalCost} />
+        <Card className="overflow-hidden">
+          <DataTable<CostItem>
+            rows={costs.items}
+            rowKey={(c) => c.id}
+            empty="No costs recorded this month."
+            columns={[
+              {
+                key: "label",
+                header: "Label",
+                primary: true,
+                cell: (c) => (
+                  <span>
+                    {c.label} {c.isComputedBonus && <span className="text-xs text-ink-muted">(auto)</span>}
+                  </span>
+                ),
+              },
+              {
+                key: "category",
+                header: "Category",
+                cell: (c) => {
+                  const cat = costCategory(categorizeCost(c));
+                  return <Badge dot={cat.hue}>{cat.label}</Badge>;
+                },
+              },
+              { key: "amount", header: "Amount", align: "right", cell: (c) => money(c.amount) },
+            ]}
+            footer={[
+              { key: "label", value: "Total cost" },
+              { key: "amount", value: money(costs.totalCost) },
+            ]}
+          />
+        </Card>
       </section>
     </div>
+  );
+}
+
+function HeroStat({
+  label,
+  hint,
+  value,
+  tone,
+  to,
+}: {
+  label: string;
+  hint: string;
+  value: string;
+  tone?: "good" | "critical";
+  to?: string;
+}) {
+  const body = (
+    <Card hover className="p-5 h-full relative overflow-hidden">
+      <div
+        className="absolute inset-x-0 top-0 h-1"
+        style={{
+          background: tone === "good" ? "var(--color-good)" : tone === "critical" ? "var(--color-critical)" : "var(--color-accent)",
+        }}
+      />
+      <div className="flex items-center justify-between">
+        <p className="text-sm font-medium text-ink-secondary">{label}</p>
+        {to && <ArrowUpRight size={16} className="text-ink-muted" />}
+      </div>
+      <p
+        className={cx(
+          "text-2xl sm:text-3xl font-semibold tabular tracking-tight mt-2",
+          tone === "good" ? "text-good" : tone === "critical" ? "text-critical" : "text-ink"
+        )}
+      >
+        {value}
+      </p>
+      <p className="text-xs text-ink-muted mt-1">{hint}</p>
+    </Card>
+  );
+  return to ? (
+    <Link to={to} className="block rounded-2xl">
+      {body}
+    </Link>
+  ) : (
+    body
   );
 }

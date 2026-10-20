@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import { toPng } from "html-to-image";
-import { ChevronLeft, ChevronRight, Download, FileText, Printer } from "lucide-react";
+import { ChevronLeft, ChevronRight, Download, FileText, ImageDown, Printer } from "lucide-react";
 import { api } from "../api/client";
 import type { Partner, PartnerMonthEntry, VoucherData } from "../api/types";
 import { useMonth } from "../context/MonthContext";
 import VoucherCard from "../components/VoucherCard";
-import { Button, EmptyState, PageHeader, Select } from "../components/ui";
+import { Button, Card, EmptyState, IconButton, LoadingState, Menu, PageHeader, SegmentedControl, Select } from "../components/ui";
 import { exportElementAsPdf } from "../lib/exportPdf";
 
 function slug(text: string) {
@@ -20,7 +20,6 @@ export default function Vouchers() {
   const [allVouchers, setAllVouchers] = useState<VoucherData[] | null>(null);
   const [mode, setMode] = useState<"single" | "all">("single");
   const [exporting, setExporting] = useState(false);
-  const [exportingPdf, setExportingPdf] = useState(false);
   const printAreaRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -52,21 +51,21 @@ export default function Vouchers() {
     if (next) setPartnerId(next.id);
   }
 
+  function fileBase() {
+    if (!selectedMonth) return "voucher";
+    return mode === "single" && voucher
+      ? `voucher-${slug(voucher.partner.name)}-${slug(selectedMonth.label)}`
+      : `vouchers-${slug(selectedMonth.label)}`;
+  }
+
   async function exportAsImage() {
     if (!printAreaRef.current || !selectedMonth) return;
     setExporting(true);
     try {
-      const dataUrl = await toPng(printAreaRef.current, {
-        pixelRatio: 2,
-        backgroundColor: "#ffffff",
-      });
-      const name =
-        mode === "single" && voucher
-          ? `voucher-${slug(voucher.partner.name)}-${slug(selectedMonth.label)}.png`
-          : `vouchers-${slug(selectedMonth.label)}.png`;
+      const dataUrl = await toPng(printAreaRef.current, { pixelRatio: 2, backgroundColor: "#ffffff" });
       const link = document.createElement("a");
       link.href = dataUrl;
-      link.download = name;
+      link.download = `${fileBase()}.png`;
       link.click();
     } finally {
       setExporting(false);
@@ -75,101 +74,94 @@ export default function Vouchers() {
 
   async function exportAsPdf() {
     if (!printAreaRef.current || !selectedMonth) return;
-    setExportingPdf(true);
+    setExporting(true);
     try {
-      const name =
-        mode === "single" && voucher
-          ? `voucher-${slug(voucher.partner.name)}-${slug(selectedMonth.label)}.pdf`
-          : `vouchers-${slug(selectedMonth.label)}.pdf`;
-      await exportElementAsPdf(printAreaRef.current, name);
+      await exportElementAsPdf(printAreaRef.current, `${fileBase()}.pdf`);
     } finally {
-      setExportingPdf(false);
+      setExporting(false);
     }
   }
 
-  if (!selectedMonth)
-    return <EmptyState title="No month selected" hint="Select a month from the header first." />;
+  if (!selectedMonth) return <EmptyState title="No month selected" hint="Select a month from the header first." />;
   if (!partners.length)
-    return <EmptyState title="No entries yet" hint="Add Monthly Entry rows for this month first." />;
+    return (
+      <div>
+        <PageHeader eyebrow={selectedMonth.label} title="Vouchers" />
+        <EmptyState icon={FileText} title="No vouchers yet" hint="Vouchers appear once partners have Monthly Entry rows for this month." />
+      </div>
+    );
+
+  const idx = partners.findIndex((p) => p.id === partnerId);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <PageHeader
+        eyebrow={selectedMonth.label}
         title="Vouchers"
-        subtitle={selectedMonth.label}
+        subtitle="One voucher per partner — print it, or save it as an image or PDF to share."
         actions={
-          <div className="no-print flex items-center gap-1 bg-page border border-border rounded-lg p-1">
-            <button
-              className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
-                mode === "single" ? "bg-surface shadow-sm text-ink" : "text-ink-muted"
-              }`}
-              onClick={() => setMode("single")}
-            >
-              Single
-            </button>
-            <button
-              className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
-                mode === "all" ? "bg-surface shadow-sm text-ink" : "text-ink-muted"
-              }`}
-              onClick={() => setMode("all")}
-            >
-              Print all
-            </button>
-          </div>
+          <SegmentedControl
+            value={mode}
+            onChange={setMode}
+            className="no-print"
+            options={[
+              { value: "single", label: "One partner" },
+              { value: "all", label: `All (${partners.length})` },
+            ]}
+          />
         }
       />
 
-      {mode === "single" && (
-        <>
-          <div className="no-print flex flex-wrap items-center gap-3">
-            <Button variant="secondary" size="sm" onClick={() => step(-1)}>
-              <ChevronLeft size={15} /> Prev
-            </Button>
-            <Select value={partnerId} onChange={(e) => setPartnerId(e.target.value)}>
+      <Card className="no-print p-3 flex flex-wrap items-center gap-2 sticky top-[4.5rem] lg:top-20 z-10">
+        {mode === "single" ? (
+          <div className="flex items-center gap-1 flex-1 min-w-0">
+            <IconButton label="Previous partner" onClick={() => step(-1)}>
+              <ChevronLeft size={18} />
+            </IconButton>
+            <Select value={partnerId} onChange={(e) => setPartnerId(e.target.value)} className="flex-1 sm:flex-none sm:w-56" aria-label="Partner">
               {partners.map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.name}
                 </option>
               ))}
             </Select>
-            <Button variant="secondary" size="sm" onClick={() => step(1)}>
-              Next <ChevronRight size={15} />
-            </Button>
-            <Button className="ml-auto" onClick={() => window.print()}>
-              <Printer size={15} /> Print
-            </Button>
-            <Button variant="secondary" loading={exporting} onClick={exportAsImage}>
-              <Download size={15} /> Export as Image
-            </Button>
-            <Button variant="secondary" loading={exportingPdf} onClick={exportAsPdf}>
-              <FileText size={15} /> Export as PDF
-            </Button>
+            <IconButton label="Next partner" onClick={() => step(1)}>
+              <ChevronRight size={18} />
+            </IconButton>
+            <span className="hidden sm:inline text-xs text-ink-muted ml-1 tabular">
+              {idx + 1} of {partners.length}
+            </span>
           </div>
-          <div className="print-area" ref={printAreaRef}>
-            {voucher && <VoucherCard data={voucher} />}
-          </div>
-        </>
+        ) : (
+          <p className="flex-1 text-sm text-ink-secondary px-1">
+            All {partners.length} vouchers, one per page when printed.
+          </p>
+        )}
+        <div className="flex items-center gap-2 ml-auto">
+          <Menu
+            label={exporting ? "Saving..." : "Save as"}
+            icon={Download}
+            items={[
+              { label: "Image (PNG)", icon: ImageDown, onClick: exportAsImage, disabled: exporting },
+              { label: "PDF", icon: FileText, onClick: exportAsPdf, disabled: exporting },
+            ]}
+          />
+          <Button onClick={() => window.print()}>
+            <Printer size={15} /> Print
+          </Button>
+        </div>
+      </Card>
+
+      {mode === "single" && (
+        <div className="print-area" ref={printAreaRef}>
+          {voucher ? <VoucherCard data={voucher} /> : <LoadingState />}
+        </div>
       )}
 
       {mode === "all" && (
-        <>
-          <div className="no-print flex items-center gap-3">
-            <Button onClick={() => window.print()}>
-              <Printer size={15} /> Print All
-            </Button>
-            <Button variant="secondary" loading={exporting} onClick={exportAsImage}>
-              <Download size={15} /> Export as Image
-            </Button>
-            <Button variant="secondary" loading={exportingPdf} onClick={exportAsPdf}>
-              <FileText size={15} /> Export as PDF
-            </Button>
-          </div>
-          <div className="print-area space-y-8" ref={printAreaRef}>
-            {allVouchers?.map((v) => (
-              <VoucherCard key={v.partner.id} data={v} />
-            ))}
-          </div>
-        </>
+        <div className="print-area space-y-8" ref={printAreaRef}>
+          {allVouchers ? allVouchers.map((v) => <VoucherCard key={v.partner.id} data={v} />) : <LoadingState />}
+        </div>
       )}
     </div>
   );

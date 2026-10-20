@@ -56,7 +56,7 @@ export function BreakdownSummary({
       ) : (
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           {rows.map((r) => (
-            <div key={r.key} className="rounded-lg border border-border p-3">
+            <div key={r.key} className="rounded-xl border border-border p-3">
               <div className="flex items-center gap-2 mb-1.5">
                 <span className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ background: r.hue }} />
                 <span className="text-xs font-medium text-ink-muted uppercase tracking-wide truncate" title={r.label}>

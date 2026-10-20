@@ -1,8 +1,10 @@
 import { useState, type FormEvent } from "react";
+import { Check, Lock, LockOpen, Plus } from "lucide-react";
 import { api, ApiError } from "../api/client";
 import type { Month } from "../api/types";
 import { useMonth } from "../context/MonthContext";
-import { Badge, Button, Card, Field, Input, PageHeader, Select, Table, Td, Th, Thead } from "../components/ui";
+import { Badge, Banner, Button, Card, DataTable, Field, Input, PageHeader, Panel, Select, useConfirm } from "../components/ui";
+import { useToast } from "../components/Toast";
 
 const MONTH_NAMES = [
   "January", "February", "March", "April", "May", "June",
@@ -11,26 +13,30 @@ const MONTH_NAMES = [
 
 export default function Months() {
   const { months, selectedMonth, setSelectedMonthId, refreshMonths } = useMonth();
+  const toast = useToast();
+  const [confirmUi, confirm] = useConfirm();
   const [monthNum, setMonthNum] = useState(new Date().getMonth() + 1);
   const [year, setYear] = useState(new Date().getFullYear());
   const [carryForward, setCarryForward] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
+  const newLabel = `${MONTH_NAMES[monthNum - 1]}-${String(year).slice(2)}`;
+
   async function onCreate(e: FormEvent) {
     e.preventDefault();
     setError(null);
     setBusy(true);
     try {
-      const label = `${MONTH_NAMES[monthNum - 1]}-${String(year).slice(2)}`;
       const created = await api.post<Month>("/months", {
-        label,
+        label: newLabel,
         year,
         month: monthNum,
         carryForwardFrom: carryForward ? selectedMonth?.id : undefined,
       });
       await refreshMonths();
       setSelectedMonthId(created.id);
+      toast(`${newLabel} created and selected`);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Failed to create month");
     } finally {
@@ -38,104 +44,119 @@ export default function Months() {
     }
   }
 
-  async function closeMonth(id: string) {
-    await api.patch(`/months/${id}`, { status: "closed" });
+  async function closeMonth(m: Month) {
+    const ok = await confirm({
+      title: `Close ${m.label}?`,
+      message: "Closing marks the month as finished. You can reopen it later if something needs fixing.",
+      confirmLabel: "Close month",
+      tone: "primary",
+    });
+    if (!ok) return;
+    await api.patch(`/months/${m.id}`, { status: "closed" });
     await refreshMonths();
+    toast(`${m.label} closed`);
   }
 
-  async function reopenMonth(id: string) {
-    await api.patch(`/months/${id}`, { status: "open" });
+  async function reopenMonth(m: Month) {
+    await api.patch(`/months/${m.id}`, { status: "open" });
     await refreshMonths();
+    toast(`${m.label} reopened`);
   }
 
   return (
-    <div className="space-y-8">
-      <PageHeader title="Months" subtitle="Create, select, and close accounting periods" />
+    <div className="space-y-6">
+      {confirmUi}
+      <PageHeader title="Months" subtitle="Create, switch between and close accounting periods." />
 
-      <Card className="p-5 max-w-md">
-        <h2 className="font-medium text-ink mb-4">Create a new month</h2>
-        <form onSubmit={onCreate} className="space-y-4">
-          <div className="flex gap-3">
-            <Field label="Month">
-              <Select value={monthNum} onChange={(e) => setMonthNum(Number(e.target.value))}>
-                {MONTH_NAMES.map((name, i) => (
-                  <option key={name} value={i + 1}>
-                    {name}
-                  </option>
-                ))}
-              </Select>
-            </Field>
-            <Field label="Year">
-              <Input
-                type="number"
-                value={year}
-                onChange={(e) => setYear(Number(e.target.value))}
-                className="w-24"
-              />
-            </Field>
+      <div className="grid grid-cols-1 lg:grid-cols-[340px_1fr] gap-6 items-start">
+        <Panel title="Create a new month" className="lg:sticky lg:top-24">
+          <form onSubmit={onCreate} className="space-y-3">
+            <div className="grid grid-cols-[1fr_100px] gap-3">
+              <Field label="Month">
+                <Select value={monthNum} onChange={(e) => setMonthNum(Number(e.target.value))}>
+                  {MONTH_NAMES.map((name, i) => (
+                    <option key={name} value={i + 1}>
+                      {name}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+              <Field label="Year">
+                <Input type="number" inputMode="numeric" value={year} onChange={(e) => setYear(Number(e.target.value))} />
+              </Field>
+            </div>
+            <p className="text-xs text-ink-muted">
+              Will be named <span className="font-medium text-ink">{newLabel}</span>
+            </p>
+            {selectedMonth && (
+              <label className="flex items-start gap-2.5 text-sm text-ink-secondary rounded-xl border border-border p-3 cursor-pointer hover:bg-page">
+                <input
+                  type="checkbox"
+                  checked={carryForward}
+                  onChange={(e) => setCarryForward(e.target.checked)}
+                  className="mt-0.5 accent-[var(--color-accent)] w-4 h-4"
+                />
+                <span>
+                  Carry forward each partner's due-after-bonus from <span className="font-medium text-ink">{selectedMonth.label}</span> as
+                  the new month's Last Month Due
+                </span>
+              </label>
+            )}
+            {error && <Banner tone="critical">{error}</Banner>}
+            <Button type="submit" loading={busy} className="w-full">
+              {!busy && <Plus size={15} />} Create month
+            </Button>
+          </form>
+        </Panel>
+
+        <Card className="overflow-hidden">
+          <div className="px-5 py-4 border-b border-border">
+            <h3 className="text-[15px] font-semibold text-ink">All months</h3>
           </div>
-          {selectedMonth && (
-            <label className="flex items-start gap-2 text-sm text-ink-secondary">
-              <input
-                type="checkbox"
-                checked={carryForward}
-                onChange={(e) => setCarryForward(e.target.checked)}
-                className="mt-0.5"
-              />
-              Carry forward due-after-bonus from {selectedMonth.label} as next month's Last Month Due
-            </label>
-          )}
-          {error && <p className="text-sm text-critical">{error}</p>}
-          <Button type="submit" loading={busy}>
-            Create Month
-          </Button>
-        </form>
-      </Card>
-
-      <Card className="overflow-hidden">
-        <Table>
-          <Thead>
-            <tr>
-              <Th>Label</Th>
-              <Th>Status</Th>
-              <Th className="text-right">Actions</Th>
-            </tr>
-          </Thead>
-          <tbody>
-            {months.map((m) => (
-              <tr key={m.id} className={m.id === selectedMonth?.id ? "bg-accent-soft/40" : undefined}>
-                <Td className="font-medium">{m.label}</Td>
-                <Td>
-                  <Badge tone={m.status === "open" ? "good" : "neutral"}>{m.status}</Badge>
-                </Td>
-                <Td className="text-right space-x-3">
-                  <button
-                    className="text-accent hover:underline text-sm"
-                    onClick={() => setSelectedMonthId(m.id)}
-                  >
-                    Select
-                  </button>
-                  {m.status === "open" ? (
-                    <button
-                      className="text-warning hover:underline text-sm"
-                      onClick={() => closeMonth(m.id)}
-                    >
-                      Close
-                    </button>
-                  ) : (
-                    <button
-                      className="text-good hover:underline text-sm"
-                      onClick={() => reopenMonth(m.id)}
-                    >
-                      Reopen
-                    </button>
-                  )}
-                </Td>
-              </tr>
-            ))}
-          </tbody>
-        </Table>
-      </Card>
+          <DataTable<Month>
+            rows={months}
+            rowKey={(m) => m.id}
+            empty="No months yet. Create the first one."
+            rowClassName={(m) => (m.id === selectedMonth?.id ? "bg-accent-soft/50" : undefined)}
+            columns={[
+              {
+                key: "label",
+                header: "Month",
+                primary: true,
+                cell: (m) => (
+                  <span className="font-medium inline-flex items-center gap-2">
+                    {m.label}
+                    {m.id === selectedMonth?.id && <Badge tone="accent">Selected</Badge>}
+                  </span>
+                ),
+              },
+              {
+                key: "status",
+                header: "Status",
+                cell: (m) => <Badge tone={m.status === "open" ? "good" : "neutral"}>{m.status === "open" ? "Open" : "Closed"}</Badge>,
+              },
+            ]}
+            actions={(m) => (
+              <div className="flex items-center gap-1.5">
+                {m.id !== selectedMonth?.id && (
+                  <Button size="sm" variant="secondary" onClick={() => setSelectedMonthId(m.id)}>
+                    <Check size={14} /> Select
+                  </Button>
+                )}
+                {m.status === "open" ? (
+                  <Button size="sm" variant="ghost" onClick={() => closeMonth(m)}>
+                    <Lock size={14} /> Close
+                  </Button>
+                ) : (
+                  <Button size="sm" variant="ghost" onClick={() => reopenMonth(m)}>
+                    <LockOpen size={14} /> Reopen
+                  </Button>
+                )}
+              </div>
+            )}
+          />
+        </Card>
+      </div>
     </div>
   );
 }

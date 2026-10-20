@@ -1,22 +1,29 @@
 import { useEffect, useState, type FormEvent } from "react";
+import { Check, Pencil, Plus, Trash2, X } from "lucide-react";
 import { api, ApiError } from "../api/client";
 import type { CollectionEntry, Partner, PartnerMonthEntry } from "../api/types";
 import { useAuth } from "../context/AuthContext";
 import { useMonth } from "../context/MonthContext";
 import { money, pct } from "../format";
 import {
+  Banner,
   Button,
   Card,
+  Chip,
+  cx,
+  DataTable,
   EmptyState,
   Field,
+  FormGrid,
+  IconButton,
   Input,
   PageHeader,
+  Panel,
+  SectionTitle,
   Select,
-  Table,
-  Td,
-  Th,
-  Thead,
+  useConfirm,
 } from "../components/ui";
+import { useToast } from "../components/Toast";
 
 type AdminDraft = {
   commissionPct: string;
@@ -35,12 +42,14 @@ function toAdminDraft(e?: PartnerMonthEntry): AdminDraft {
 }
 
 const cellInput =
-  "border border-border rounded-md px-2 py-1 text-right text-sm bg-surface focus:outline-none focus:ring-2 focus:ring-accent/40 focus:border-accent";
+  "h-8 border border-border rounded-lg px-2 text-right text-sm bg-surface tabular hover:border-border-strong focus:outline-none focus:ring-4 focus:ring-accent/15 focus:border-accent";
 
 export default function Entries() {
   const { user } = useAuth();
   const isAdmin = user?.role === "admin";
   const { selectedMonth } = useMonth();
+  const toast = useToast();
+  const [confirmUi, confirm] = useConfirm();
 
   const [partners, setPartners] = useState<Partner[]>([]);
   const [entries, setEntries] = useState<PartnerMonthEntry[]>([]);
@@ -97,6 +106,7 @@ export default function Entries() {
         users: Number(addUsers) || 0,
         collection: Number(addCollection) || 0,
       });
+      toast(`Entry added for ${partners.find((p) => p.id === addPartnerId)?.name ?? "partner"}`);
       setAddUsers("");
       setAddCollection("");
       await refresh();
@@ -109,6 +119,18 @@ export default function Entries() {
 
   function updateAdminDraft(partnerId: string, field: keyof AdminDraft, value: string) {
     setAdminDrafts((prev) => ({ ...prev, [partnerId]: { ...prev[partnerId], [field]: value } }));
+  }
+
+  function isDirty(partnerId: string) {
+    const d = adminDrafts[partnerId];
+    if (!d) return false;
+    const saved = toAdminDraft(entries.find((e) => e.partnerId === partnerId));
+    return (Object.keys(d) as Array<keyof AdminDraft>).some((k) => Number(d[k]) !== Number(saved[k]));
+  }
+
+  // No row saved yet for this partner: saving the defaults creates it.
+  function needsCreate(partnerId: string) {
+    return !entries.some((e) => e.partnerId === partnerId);
   }
 
   async function saveAdminParams(partnerId: string) {
@@ -125,6 +147,7 @@ export default function Entries() {
         discount: Number(d.discount) || 0,
         lastMonthDue: Number(d.lastMonthDue) || 0,
       });
+      toast(`Saved ${partners.find((p) => p.id === partnerId)?.name ?? "partner"}`);
       await refresh();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Failed to save");
@@ -147,15 +170,27 @@ export default function Entries() {
         collection: Number(editCollection) || 0,
       });
       setEditingLogId(null);
+      toast("Correction saved");
       await refresh();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Failed to save correction");
     }
   }
 
-  async function deleteLog(id: string) {
-    await api.delete(`/collection-entries/${id}`);
-    await refresh();
+  async function deleteLog(entry: CollectionEntry) {
+    const name = partners.find((p) => p.id === entry.partnerId)?.name ?? "this partner";
+    const ok = await confirm({
+      title: "Delete this entry?",
+      message: `${entry.users} users / ${money(entry.collection)} for ${name} will be removed and the totals recalculated. This cannot be undone.`,
+    });
+    if (!ok) return;
+    try {
+      await api.delete(`/collection-entries/${entry.id}`);
+      toast("Entry deleted");
+      await refresh();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Failed to delete entry");
+    }
   }
 
   function computePreview(d: AdminDraft, partnerId: string) {
@@ -176,282 +211,300 @@ export default function Entries() {
     return { commissionAmount, businessAmount, bonusAmount, dueWithBonus, dueAfterBonus, totalDeposit };
   }
 
-  if (!selectedMonth)
-    return <EmptyState title="No month selected" hint="Select a month from the header first." />;
+  if (!selectedMonth) return <EmptyState title="No month selected" hint="Select a month from the header first." />;
 
   const totalUsers = entries.reduce((sum, e) => sum + e.totalUsers, 0);
   const totalCollection = entries.reduce((sum, e) => sum + (Number(e.totalCollection) || 0), 0);
+  const partnerName = (id: string) => partners.find((p) => p.id === id)?.name ?? "—";
 
   return (
     <div className="space-y-8">
+      {confirmUi}
       <PageHeader
-        title={`Monthly Entry — ${selectedMonth.label}`}
-        subtitle="Add each partner's users and collection as many times as needed during the month. Once submitted, only an admin can correct an entry."
+        eyebrow={selectedMonth.label}
+        title="Monthly Entry"
+        subtitle="Add each partner's users and collection as often as needed during the month. Once submitted, only an admin can correct an entry."
       />
 
-      {error && <p className="text-sm text-critical">{error}</p>}
+      {error && <Banner tone="critical">{error}</Banner>}
 
       {/* Add form - both roles */}
-      <Card className="p-5">
-        <h2 className="font-medium text-ink mb-4">Add a collection entry</h2>
-        <form onSubmit={onAdd} className="flex flex-wrap gap-3 items-end">
-          <Field label="Partner">
-            <Select value={addPartnerId} onChange={(e) => setAddPartnerId(e.target.value)}>
-              {partners.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name}
-                </option>
-              ))}
-            </Select>
-          </Field>
-          <Field label="Users">
-            <Input
-              type="number"
-              min={0}
-              value={addUsers}
-              onChange={(e) => setAddUsers(e.target.value)}
-              className="w-28"
-              required
-            />
-          </Field>
-          <Field label="Collection">
-            <Input
-              type="number"
-              min={0}
-              step="1"
-              value={addCollection}
-              onChange={(e) => setAddCollection(e.target.value)}
-              className="w-32"
-              required
-            />
-          </Field>
-          <Button type="submit" loading={adding}>
-            Add
-          </Button>
-        </form>
-      </Card>
+      <Panel title="Add a collection entry" description="Each entry adds to the partner's monthly total.">
+        {partners.length === 0 ? (
+          <p className="text-sm text-ink-muted">No active partners yet.</p>
+        ) : (
+          <form onSubmit={onAdd} className="space-y-4">
+            {partners.length <= 10 && (
+              <div className="flex flex-wrap gap-2" role="group" aria-label="Partner">
+                {partners.map((p) => (
+                  <Chip key={p.id} active={addPartnerId === p.id} onClick={() => setAddPartnerId(p.id)}>
+                    {p.name}
+                  </Chip>
+                ))}
+              </div>
+            )}
+            <FormGrid cols={4}>
+              {partners.length > 10 && (
+                <Field label="Partner">
+                  <Select value={addPartnerId} onChange={(e) => setAddPartnerId(e.target.value)}>
+                    {partners.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name}
+                      </option>
+                    ))}
+                  </Select>
+                </Field>
+              )}
+              <Field label="Users">
+                <Input type="number" inputMode="numeric" min={0} value={addUsers} onChange={(e) => setAddUsers(e.target.value)} required />
+              </Field>
+              <Field label="Collection (Tk)">
+                <Input type="number" inputMode="numeric" min={0} step="1" value={addCollection} onChange={(e) => setAddCollection(e.target.value)} required />
+              </Field>
+              <Button type="submit" loading={adding} className="w-full sm:w-auto">
+                {!adding && <Plus size={15} />} Add for {partnerName(addPartnerId)}
+              </Button>
+            </FormGrid>
+          </form>
+        )}
+      </Panel>
 
       {/* Summary: totals per partner, admin-only editable business params */}
-      <Card className="overflow-x-auto">
-        <table className="w-full text-sm whitespace-nowrap">
-          <thead className="bg-page text-ink-muted text-xs uppercase tracking-wide">
-            <tr>
-              <th className="text-left px-3 py-2.5 font-medium sticky left-0 bg-page">Partner</th>
-              <th className="text-right px-3 py-2.5 font-medium">Total Users</th>
-              <th className="text-right px-3 py-2.5 font-medium">Total Collection</th>
-              {isAdmin && (
-                <>
-                  <th className="text-right px-3 py-2.5 font-medium">Comm %</th>
-                  <th className="text-right px-3 py-2.5 font-medium">Bonus %</th>
-                  <th className="text-right px-3 py-2.5 font-medium">Discount</th>
-                  <th className="text-right px-3 py-2.5 font-medium">Last Mo. Due</th>
-                  <th className="text-right px-3 py-2.5 font-medium bg-accent-soft/40">Comm. Amt</th>
-                  <th className="text-right px-3 py-2.5 font-medium bg-accent-soft/40">Business Amt</th>
-                  <th className="text-right px-3 py-2.5 font-medium bg-accent-soft/40">Deposit</th>
-                  <th className="text-right px-3 py-2.5 font-medium bg-accent-soft/40">Bonus Amt</th>
-                  <th className="text-right px-3 py-2.5 font-medium bg-accent-soft/40">Due (w/ bonus)</th>
-                  <th className="text-right px-3 py-2.5 font-medium bg-accent-soft/40">Due (after bonus)</th>
-                  <th className="px-3 py-2.5"></th>
-                </>
-              )}
-            </tr>
-          </thead>
-          <tbody>
-            {partners.map((p) => {
-              const entry = entries.find((e) => e.partnerId === p.id);
-              const d = adminDrafts[p.id];
-              const preview = isAdmin && d ? computePreview(d, p.id) : null;
-              return (
-                <tr key={p.id} className="border-t border-border">
-                  <td className="px-3 py-1.5 font-medium sticky left-0 bg-surface">{p.name}</td>
-                  <td className="px-3 py-1.5 text-right tabular">{entry?.totalUsers ?? 0}</td>
-                  <td className="px-3 py-1.5 text-right tabular">{money(entry?.totalCollection ?? 0)}</td>
-                  {isAdmin && d && preview && (
-                    <>
-                      <td className="px-3 py-1.5">
-                        <input
-                          type="number"
-                          step="0.01"
-                          min={0}
-                          max={1}
-                          className={`${cellInput} w-16`}
-                          value={d.commissionPct}
-                          onChange={(e) => updateAdminDraft(p.id, "commissionPct", e.target.value)}
-                        />
-                      </td>
-                      <td className="px-3 py-1.5">
-                        <input
-                          type="number"
-                          step="0.01"
-                          min={0}
-                          max={1}
-                          className={`${cellInput} w-16`}
-                          value={d.bonusPct}
-                          onChange={(e) => updateAdminDraft(p.id, "bonusPct", e.target.value)}
-                        />
-                      </td>
-                      <td className="px-3 py-1.5">
-                        <input
-                          type="number"
-                          min={0}
-                          className={`${cellInput} w-20`}
-                          value={d.discount}
-                          onChange={(e) => updateAdminDraft(p.id, "discount", e.target.value)}
-                        />
-                      </td>
-                      <td className="px-3 py-1.5">
-                        <input
-                          type="number"
-                          className={`${cellInput} w-24`}
-                          value={d.lastMonthDue}
-                          onChange={(e) => updateAdminDraft(p.id, "lastMonthDue", e.target.value)}
-                        />
-                      </td>
-                      <td className="px-3 py-1.5 text-right bg-page tabular">
-                        {money(preview.commissionAmount)}
-                      </td>
-                      <td className="px-3 py-1.5 text-right bg-page tabular">
-                        {money(preview.businessAmount)}
-                      </td>
-                      <td className="px-3 py-1.5 text-right bg-page tabular">{money(preview.totalDeposit)}</td>
-                      <td className="px-3 py-1.5 text-right bg-page tabular">{money(preview.bonusAmount)}</td>
-                      <td className="px-3 py-1.5 text-right bg-page tabular">{money(preview.dueWithBonus)}</td>
-                      <td className="px-3 py-1.5 text-right bg-page tabular font-semibold">
-                        {money(preview.dueAfterBonus)}
-                      </td>
-                      <td className="px-3 py-1.5">
-                        <button
-                          onClick={() => saveAdminParams(p.id)}
-                          disabled={savingId === p.id}
-                          className="text-accent hover:underline text-xs font-medium disabled:opacity-50"
-                        >
-                          {savingId === p.id ? "Saving..." : "Save"}
-                        </button>
-                      </td>
-                    </>
-                  )}
-                </tr>
-              );
-            })}
-          </tbody>
-          <tfoot>
-            <tr className="border-t border-border font-semibold bg-page">
-              <td className="px-3 py-2.5 sticky left-0 bg-page">Totals</td>
-              <td className="px-3 py-2.5 text-right tabular">{totalUsers.toLocaleString()}</td>
-              <td className="px-3 py-2.5 text-right tabular">{money(totalCollection)}</td>
-              {isAdmin && <td colSpan={9}></td>}
-            </tr>
-          </tfoot>
-        </table>
-      </Card>
-      {isAdmin && (
-        <p className="text-xs text-ink-muted -mt-4">
-          Commission % example: 0.45 = {pct(0.45)}. Deposit column reflects sums from the Deposits screen.
-        </p>
-      )}
-
-      {/* Log - both roles view, admin can edit/delete */}
-      <div>
-        <h2 className="text-xs font-semibold text-ink-muted uppercase tracking-wide mb-3">
-          Collection entries this month
-        </h2>
-        <Card className="overflow-hidden">
-          <Table>
-            <Thead>
-              <tr>
-                <Th>Date</Th>
-                <Th>Partner</Th>
-                <Th className="text-right">Users</Th>
-                <Th className="text-right">Collection</Th>
-                <Th>Added by</Th>
-                {isAdmin && <Th className="text-right">Actions</Th>}
-              </tr>
-            </Thead>
-            <tbody>
-              {log.map((entry) => {
-                const partnerName = partners.find((p) => p.id === entry.partnerId)?.name ?? "—";
-                const isEditing = editingLogId === entry.id;
-                return (
-                  <tr key={entry.id}>
-                    <Td className="text-ink-secondary">{new Date(entry.createdAt).toLocaleString()}</Td>
-                    <Td className="font-medium">{partnerName}</Td>
-                    <Td className="text-right tabular">
-                      {isEditing ? (
-                        <input
-                          type="number"
-                          min={0}
-                          className={`${cellInput} w-20`}
-                          value={editUsers}
-                          onChange={(e) => setEditUsers(e.target.value)}
-                        />
-                      ) : (
-                        entry.users
-                      )}
-                    </Td>
-                    <Td className="text-right tabular">
-                      {isEditing ? (
-                        <input
-                          type="number"
-                          min={0}
-                          step="1"
-                          className={`${cellInput} w-28`}
-                          value={editCollection}
-                          onChange={(e) => setEditCollection(e.target.value)}
-                        />
-                      ) : (
-                        money(entry.collection)
-                      )}
-                    </Td>
-                    <Td className="text-ink-secondary">{entry.createdBy?.email ?? "—"}</Td>
-                    {isAdmin && (
-                      <Td className="text-right space-x-3">
-                        {isEditing ? (
+      <section>
+        <SectionTitle>
+          Partner totals · {totalUsers.toLocaleString()} users · {money(totalCollection)} collected
+        </SectionTitle>
+        {isAdmin ? (
+          <Card className="overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm whitespace-nowrap">
+                <thead className="bg-surface-2 text-ink-muted text-[11px] uppercase tracking-wider">
+                  <tr className="border-b border-border">
+                    <th className="text-left px-3 py-3 font-semibold sticky left-0 z-10 bg-surface-2">Partner</th>
+                    <th className="text-right px-3 py-3 font-semibold">Users</th>
+                    <th className="text-right px-3 py-3 font-semibold">Collection</th>
+                    <th className="text-right px-3 py-3 font-semibold border-l border-border">Comm %</th>
+                    <th className="text-right px-3 py-3 font-semibold">Bonus %</th>
+                    <th className="text-right px-3 py-3 font-semibold">Discount</th>
+                    <th className="text-right px-3 py-3 font-semibold">Last mo. due</th>
+                    <th className="text-right px-3 py-3 font-semibold border-l border-border">Comm. amt</th>
+                    <th className="text-right px-3 py-3 font-semibold">Business amt</th>
+                    <th className="text-right px-3 py-3 font-semibold">Deposit</th>
+                    <th className="text-right px-3 py-3 font-semibold">Bonus amt</th>
+                    <th className="text-right px-3 py-3 font-semibold">Due (w/ bonus)</th>
+                    <th className="text-right px-3 py-3 font-semibold">Due (after bonus)</th>
+                    <th className="px-3 py-3"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {partners.map((p, i) => {
+                    const entry = entries.find((e) => e.partnerId === p.id);
+                    const d = adminDrafts[p.id];
+                    const preview = d ? computePreview(d, p.id) : null;
+                    const dirty = isDirty(p.id);
+                    const canSave = dirty || needsCreate(p.id);
+                    return (
+                      <tr key={p.id} className={cx("group hover:bg-surface-2", i > 0 && "border-t border-border")}>
+                        <td className="px-3 py-2 font-medium sticky left-0 z-10 bg-surface group-hover:bg-surface-2">
+                          <span className="inline-flex items-center gap-2">
+                            {dirty && <span className="w-2 h-2 rounded-full bg-warning" title="Unsaved changes" />}
+                            {p.name}
+                          </span>
+                        </td>
+                        <td className="px-3 py-2 text-right tabular">{entry?.totalUsers ?? 0}</td>
+                        <td className="px-3 py-2 text-right tabular">{money(entry?.totalCollection ?? 0)}</td>
+                        {d && preview ? (
                           <>
-                            <button
-                              className="text-accent hover:underline text-xs"
-                              onClick={() => saveEditLog(entry.id)}
-                            >
-                              Save
-                            </button>
-                            <button
-                              className="text-ink-muted hover:underline text-xs"
-                              onClick={() => setEditingLogId(null)}
-                            >
-                              Cancel
-                            </button>
+                            <td className="px-3 py-2 border-l border-border">
+                              <input
+                                aria-label={`${p.name} commission`}
+                                type="number"
+                                step="0.01"
+                                min={0}
+                                max={1}
+                                className={`${cellInput} w-16`}
+                                value={d.commissionPct}
+                                onChange={(e) => updateAdminDraft(p.id, "commissionPct", e.target.value)}
+                              />
+                            </td>
+                            <td className="px-3 py-2">
+                              <input
+                                aria-label={`${p.name} bonus`}
+                                type="number"
+                                step="0.01"
+                                min={0}
+                                max={1}
+                                className={`${cellInput} w-16`}
+                                value={d.bonusPct}
+                                onChange={(e) => updateAdminDraft(p.id, "bonusPct", e.target.value)}
+                              />
+                            </td>
+                            <td className="px-3 py-2">
+                              <input
+                                aria-label={`${p.name} discount`}
+                                type="number"
+                                min={0}
+                                className={`${cellInput} w-20`}
+                                value={d.discount}
+                                onChange={(e) => updateAdminDraft(p.id, "discount", e.target.value)}
+                              />
+                            </td>
+                            <td className="px-3 py-2">
+                              <input
+                                aria-label={`${p.name} last month due`}
+                                type="number"
+                                className={`${cellInput} w-24`}
+                                value={d.lastMonthDue}
+                                onChange={(e) => updateAdminDraft(p.id, "lastMonthDue", e.target.value)}
+                              />
+                            </td>
+                            <td className="px-3 py-2 text-right tabular text-ink-secondary border-l border-border">{money(preview.commissionAmount)}</td>
+                            <td className="px-3 py-2 text-right tabular text-ink-secondary">{money(preview.businessAmount)}</td>
+                            <td className="px-3 py-2 text-right tabular text-ink-secondary">{money(preview.totalDeposit)}</td>
+                            <td className="px-3 py-2 text-right tabular text-ink-secondary">{money(preview.bonusAmount)}</td>
+                            <td className="px-3 py-2 text-right tabular text-ink-secondary">{money(preview.dueWithBonus)}</td>
+                            <td className="px-3 py-2 text-right tabular font-semibold">{money(preview.dueAfterBonus)}</td>
+                            <td className="px-3 py-2 text-right">
+                              <Button
+                                size="sm"
+                                variant={canSave ? "primary" : "secondary"}
+                                loading={savingId === p.id}
+                                disabled={!canSave && savingId !== p.id}
+                                onClick={() => saveAdminParams(p.id)}
+                              >
+                                {canSave ? "Save" : "Saved"}
+                              </Button>
+                            </td>
                           </>
                         ) : (
-                          <>
-                            <button
-                              className="text-accent hover:underline text-xs"
-                              onClick={() => startEditLog(entry)}
-                            >
-                              Edit
-                            </button>
-                            <button
-                              className="text-critical hover:underline text-xs"
-                              onClick={() => deleteLog(entry.id)}
-                            >
-                              Delete
-                            </button>
-                          </>
+                          <td colSpan={11} />
                         )}
-                      </Td>
-                    )}
+                      </tr>
+                    );
+                  })}
+                </tbody>
+                <tfoot>
+                  <tr className="border-t border-border font-semibold bg-surface-2">
+                    <td className="px-3 py-3 sticky left-0 z-10 bg-surface-2">Totals</td>
+                    <td className="px-3 py-3 text-right tabular">{totalUsers.toLocaleString()}</td>
+                    <td className="px-3 py-3 text-right tabular">{money(totalCollection)}</td>
+                    <td colSpan={11}></td>
                   </tr>
-                );
-              })}
-              {!log.length && (
-                <tr>
-                  <Td colSpan={isAdmin ? 6 : 5} className="text-center text-ink-muted py-6">
-                    No entries submitted for this month yet.
-                  </Td>
-                </tr>
-              )}
-            </tbody>
-          </Table>
+                </tfoot>
+              </table>
+            </div>
+            <p className="text-xs text-ink-muted px-4 py-3 border-t border-border">
+              Commission and bonus are fractions — 0.45 = {pct(0.45)}. A dot marks rows with unsaved changes. Deposit comes from
+              the Deposits screen.
+            </p>
+          </Card>
+        ) : (
+          <Card className="overflow-hidden">
+            <DataTable<Partner>
+              rows={partners}
+              rowKey={(p) => p.id}
+              columns={[
+                { key: "name", header: "Partner", primary: true, cell: (p) => <span className="font-medium">{p.name}</span> },
+                { key: "users", header: "Users", align: "right", cell: (p) => entries.find((e) => e.partnerId === p.id)?.totalUsers ?? 0 },
+                {
+                  key: "collection",
+                  header: "Collection",
+                  align: "right",
+                  cell: (p) => money(entries.find((e) => e.partnerId === p.id)?.totalCollection ?? 0),
+                },
+              ]}
+              footer={[
+                { key: "name", value: "Totals" },
+                { key: "users", value: totalUsers.toLocaleString() },
+                { key: "collection", value: money(totalCollection) },
+              ]}
+            />
+          </Card>
+        )}
+      </section>
+
+      {/* Log - both roles view, admin can edit/delete */}
+      <section>
+        <SectionTitle>Entries this month · {log.length}</SectionTitle>
+        <Card className="overflow-hidden">
+          <DataTable<CollectionEntry>
+            rows={log}
+            rowKey={(e) => e.id}
+            empty="No entries submitted for this month yet."
+            rowClassName={(e) => (editingLogId === e.id ? "bg-accent-soft/40" : undefined)}
+            columns={[
+              { key: "partner", header: "Partner", primary: true, cell: (e) => <span className="font-medium">{partnerName(e.partnerId)}</span> },
+              {
+                key: "users",
+                header: "Users",
+                align: "right",
+                cell: (e) =>
+                  editingLogId === e.id ? (
+                    <input
+                      aria-label="Users"
+                      type="number"
+                      min={0}
+                      className={`${cellInput} w-20`}
+                      value={editUsers}
+                      onChange={(ev) => setEditUsers(ev.target.value)}
+                    />
+                  ) : (
+                    e.users
+                  ),
+              },
+              {
+                key: "collection",
+                header: "Collection",
+                align: "right",
+                cell: (e) =>
+                  editingLogId === e.id ? (
+                    <input
+                      aria-label="Collection"
+                      type="number"
+                      min={0}
+                      step="1"
+                      className={`${cellInput} w-28`}
+                      value={editCollection}
+                      onChange={(ev) => setEditCollection(ev.target.value)}
+                    />
+                  ) : (
+                    money(e.collection)
+                  ),
+              },
+              {
+                key: "date",
+                header: "Added",
+                cell: (e) => <span className="text-ink-secondary">{new Date(e.createdAt).toLocaleString()}</span>,
+              },
+              { key: "by", header: "By", cell: (e) => <span className="text-ink-secondary">{e.createdBy?.email ?? "—"}</span> },
+            ]}
+            actions={
+              isAdmin
+                ? (e) =>
+                    editingLogId === e.id ? (
+                      <div className="flex items-center gap-1">
+                        <IconButton label="Save correction" onClick={() => saveEditLog(e.id)} className="text-good hover:bg-good-soft">
+                          <Check size={16} />
+                        </IconButton>
+                        <IconButton label="Cancel" onClick={() => setEditingLogId(null)}>
+                          <X size={16} />
+                        </IconButton>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-1">
+                        <IconButton label="Correct entry" onClick={() => startEditLog(e)}>
+                          <Pencil size={15} />
+                        </IconButton>
+                        <IconButton label="Delete entry" onClick={() => deleteLog(e)} className="hover:text-critical hover:bg-critical-soft">
+                          <Trash2 size={15} />
+                        </IconButton>
+                      </div>
+                    )
+                : undefined
+            }
+          />
         </Card>
-      </div>
+      </section>
     </div>
   );
 }
